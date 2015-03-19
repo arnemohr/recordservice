@@ -31,7 +31,7 @@
 #include <gutil/strings/substitute.h>
 
 DEFINE_bool(disk_spill_encryption, false, "Set this to encrypt and perform an integrity "
-    "check on all data spilled to disk during a query");
+  "check on all data spilled to disk during a query");
 
 #include "common/names.h"
 
@@ -43,31 +43,31 @@ BufferedBlockMgr::BlockMgrsMap BufferedBlockMgr::query_to_block_mgrs_;
 SpinLock BufferedBlockMgr::static_block_mgrs_lock_("BufferedBlockMgrs");
 
 struct BufferedBlockMgr::Client {
-  Client(BufferedBlockMgr* mgr, int num_reserved_buffers, MemTracker* tracker,
-      RuntimeState* state)
-    : mgr_(mgr),
-      state_(state),
-      tracker_(tracker),
-      query_tracker_(mgr_->mem_tracker_->parent()),
-      num_reserved_buffers_(num_reserved_buffers),
-      num_tmp_reserved_buffers_(0),
-      num_pinned_buffers_(0) {
-  }
+Client(BufferedBlockMgr* mgr, int num_reserved_buffers, MemTracker* tracker,
+    RuntimeState* state)
+  : mgr_(mgr),
+    state_(state),
+    tracker_(tracker),
+    query_tracker_(mgr_->mem_tracker_->parent()),
+    num_reserved_buffers_(num_reserved_buffers),
+    num_tmp_reserved_buffers_(0),
+    num_pinned_buffers_(0) {
+}
 
-  // Unowned.
-  BufferedBlockMgr* mgr_;
+// Unowned.
+BufferedBlockMgr* mgr_;
 
-  // Unowned.
-  RuntimeState* state_;
+// Unowned.
+RuntimeState* state_;
 
-  // Tracker for this client. Can be NULL. Unowned.
-  // If this is set, when the client gets a buffer, we update the consumption on this
-  // tracker. However, we don't want to transfer the buffer from the block mgr to the
-  // client (i.e. release from the block mgr), since the block mgr is where the block
-  // mem usage limit is enforced. Even when we give a buffer to a client, the buffer
-  // is still owned and counts against the block mgr tracker (i.e. there is a fixed pool
-  // of buffers regardless of if they are in the block mgr or the clients).
-  MemTracker* tracker_;
+// Tracker for this client. Can be NULL. Unowned.
+// If this is set, when the client gets a buffer, we update the consumption on this
+// tracker. However, we don't want to transfer the buffer from the block mgr to the
+// client (i.e. release from the block mgr), since the block mgr is where the
+// block mem usage limit is enforced. Even when we give a buffer to a client, the
+// buffer is still owned and counts against the block mgr tracker (i.e. there is a
+// fixed pool of buffers regardless of if they are in the block mgr or the clients).
+MemTracker* tracker_;
 
   // This is the common ancestor between the block mgr tracker and the client tracker.
   // When memory is transferred to the client, we want it to stop at this tracker.
