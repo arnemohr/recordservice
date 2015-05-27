@@ -181,6 +181,18 @@ class ColumnDescriptor {
   ColumnType type_;
 };
 
+class ColumnDescriptor {
+ public:
+  ColumnDescriptor(const TColumnDescriptor& tdesc);
+  const std::string& name() const { return name_; }
+  const ColumnType& type() const { return type_; }
+  std::string DebugString() const;
+
+ private:
+  std::string name_;
+  ColumnType type_;
+};
+
 /// Base class for table descriptors.
 class TableDescriptor {
  public:
