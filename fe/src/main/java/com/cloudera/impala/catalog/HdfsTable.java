@@ -17,8 +17,6 @@ package com.cloudera.impala.catalog;
 import static com.codahale.metrics.MetricRegistry.name;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,21 +33,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.apache.avro.Schema;
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
-import org.apache.hadoop.hive.metastore.api.ConfigValSecurityException;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.serde.serdeConstants;
-import org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.impala.analysis.ColumnDef;
 import com.cloudera.impala.analysis.Expr;
 import com.cloudera.impala.analysis.LiteralExpr;
 import com.cloudera.impala.analysis.NullLiteral;
@@ -77,6 +73,7 @@ import com.cloudera.impala.thrift.TTableDescriptor;
 import com.cloudera.impala.thrift.TTableType;
 import com.cloudera.impala.util.AvroSchemaConverter;
 import com.cloudera.impala.util.AvroSchemaParser;
+import com.cloudera.impala.util.AvroSchemaUtils;
 import com.cloudera.impala.util.FsPermissionChecker;
 import com.cloudera.impala.util.HdfsCachingUtil;
 import com.cloudera.impala.util.ListMap;
@@ -1031,9 +1028,11 @@ public class HdfsTable extends Table {
 
   /**
    * Populates nonPartFieldSchemas_ from msTbl.
+   * @throws AnalysisException 
    */
   private void loadFieldSchemas(
-      org.apache.hadoop.hive.metastore.api.Table msTbl) throws TableLoadingException {
+      org.apache.hadoop.hive.metastore.api.Table msTbl) throws TableLoadingException,
+      AnalysisException {
     List<FieldSchema> msColDefs = msTbl.getSd().getCols();
     String inputFormat = msTbl.getSd().getInputFormat();
     if (HdfsFileFormat.fromJavaClassName(inputFormat) == HdfsFileFormat.AVRO) {
@@ -1044,13 +1043,13 @@ public class HdfsTable extends Table {
           getMetaStoreTable().getSd().getSerdeInfo().getParameters());
       schemaSearchLocations.add(getMetaStoreTable().getParameters());
 
-      avroSchema_ = HdfsTable.getAvroSchema(schemaSearchLocations);
+      avroSchema_ = AvroSchemaUtils.getAvroSchema(schemaSearchLocations);
       if (avroSchema_ == null) {
         // No Avro schema was explicitly set in the table metadata, so infer the Avro
         // schema from the column definitions.
-        Schema avroSchema = AvroSchemaConverter.convertFieldSchemas(
-            msColDefs, getFullName());
-        avroSchema_ = avroSchema.toString();
+        Schema inferredSchema = AvroSchemaConverter.convertFieldSchemas(
+            msTbl.getSd().getCols(), getFullName());
+        avroSchema_ = inferredSchema.toString();
       }
       String serdeLib = msTbl.getSd().getSerdeInfo().getSerializationLib();
       if (serdeLib == null ||
@@ -1066,39 +1065,18 @@ public class HdfsTable extends Table {
         // Impala-created tables this step is not necessary because the same
         // resolution is done during table creation. But Hive-created tables
         // store the original column definitions, and not the reconciled ones.
-        // The schemas are reconciled according to following policy:
-        //
-        // Mismatched number of columns -> Prefer Avro column.
-        // Mismatched name/type -> Prefer Avro column, except:
-        //   A CHAR/VARCHAR column definition maps to an Avro STRING, and is preserved
-        //   as a CHAR/VARCHAR in the reconciled schema.
-        // Behavior for TIMESTAMP:
-        // A TIMESTAMP column definition maps to an Avro STRING and is presented as a
-        // STRING in the reconciled schema, because Avro has no binary TIMESTAMP
-        // representation. As a result, no Avro table may have a TIMESTAMP column.
-        //
-        // TODO: Factor out common schema reconciliation logic from here and
-        // CreateTableStmt.
-        List<Column> avroCols = AvroSchemaParser.parse(avroSchema_);
-        for (int i = 0; i < avroCols.size(); ++i) {
-          boolean useAvroType = true;
-          if (msColDefs.size() == avroCols.size()) {
-            Type colDefType = parseColumnType(msColDefs.get(i));
-            if (avroCols.get(i).getType().isStringType() && colDefType.isStringType()) {
-              // Preserve CHAR/VARCHAR from column definition. Avro only has STRING.
-              useAvroType = false;
-            }
-          }
-          FieldSchema newFs = new FieldSchema();
-          newFs.setName(avroCols.get(i).getName());
-          newFs.setComment("from deserializer");
-          if (useAvroType) {
-            newFs.setType(avroCols.get(i).getType().toSql());
-          } else {
-            newFs.setType(msColDefs.get(i).getType());
-          }
-          nonPartFieldSchemas_.add(newFs);
+        List<ColumnDef> colDefs =
+            ColumnDef.createFromFieldSchemas(msTbl.getSd().getCols());
+        List<ColumnDef> avroCols = AvroSchemaParser.parse(avroSchema_);
+        StringBuilder warning = new StringBuilder();
+        List<ColumnDef> reconciledColDefs =
+            AvroSchemaUtils.reconcileSchemas(colDefs, avroCols, warning);
+        if (warning.length() != 0) {
+          LOG.warn(String.format("Warning while loading table %s:\n%s",
+              getFullName(), warning.toString()));
         }
+        AvroSchemaUtils.setFromSerdeComment(reconciledColDefs);
+        nonPartFieldSchemas_.addAll(ColumnDef.toFieldSchemas(reconciledColDefs));
       }
     } else {
       nonPartFieldSchemas_.addAll(msColDefs);
@@ -1158,69 +1136,6 @@ public class HdfsTable extends Table {
       LOG.info(String.format("Incrementally refreshing %d/%d partitions.",
           partNames.size(), totalPartitions));
     }
-  }
-
-  /**
-   * Gets an Avro table's JSON schema from the list of given table property search
-   * locations. The schema may be specified as a string literal or provided as a
-   * Hadoop FileSystem or http URL that points to the schema. Apart from ensuring
-   * that the JSON schema is not SCHEMA_NONE, this function does not perform any
-   * additional validation on the returned string (e.g., it may not be a valid
-   * schema). Returns the Avro schema or null if none was specified in the search
-   * locations. Throws a TableLoadingException if a schema was specified, but could not
-   * be retrieved, e.g., because of an invalid URL.
-   */
-  public static String getAvroSchema(List<Map<String, String>> schemaSearchLocations)
-      throws TableLoadingException {
-    String url = null;
-    // Search all locations and break out on the first valid schema found.
-    for (Map<String, String> schemaLocation: schemaSearchLocations) {
-      if (schemaLocation == null) continue;
-
-      String literal = schemaLocation.get(AvroSerdeUtils.SCHEMA_LITERAL);
-      if (literal != null && !literal.equals(AvroSerdeUtils.SCHEMA_NONE)) return literal;
-
-      url = schemaLocation.get(AvroSerdeUtils.SCHEMA_URL);
-      if (url != null && !url.equals(AvroSerdeUtils.SCHEMA_NONE)) {
-        url = url.trim();
-        break;
-      }
-    }
-    if (url == null) return null;
-
-    String schema = null;
-    if (url.toLowerCase().startsWith("http://")) {
-      InputStream urlStream = null;
-      try {
-        urlStream = new URL(url).openStream();
-        schema = IOUtils.toString(urlStream);
-      } catch (IOException e) {
-        throw new TableLoadingException("Problem reading Avro schema from: " + url, e);
-      } finally {
-        IOUtils.closeQuietly(urlStream);
-      }
-    } else {
-      Path path = new Path(url);
-      FileSystem fs = null;
-      try {
-        fs = path.getFileSystem(FileSystemUtil.getConfiguration());
-      } catch (Exception e) {
-        throw new TableLoadingException(String.format(
-            "Invalid avro.schema.url: %s. %s", path, e.getMessage()));
-      }
-      StringBuilder errorMsg = new StringBuilder();
-      if (!FileSystemUtil.isPathReachable(path, fs, errorMsg)) {
-        throw new TableLoadingException(String.format(
-            "Invalid avro.schema.url: %s. %s", path, errorMsg));
-      }
-      try {
-        schema = FileSystemUtil.readFile(path);
-      } catch (IOException e) {
-        throw new TableLoadingException(
-            "Problem reading Avro schema at: " + url, e);
-      }
-    }
-    return schema;
   }
 
   @Override
