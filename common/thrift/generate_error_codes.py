@@ -167,6 +167,20 @@ error_codes = (
   ("SSL_SOCKET_CREATION_FAILED", 52, "SSL socket creation failed: $0"),
 
   ("MEM_ALLOC_FAILED", 53, "Memory allocation of $0 bytes failed"),
+
+  ("PARQUET_REP_LEVEL_ERROR", 54, "Could not read repetition level, even though metadata"
+   " states there are $0 values remaining in data page. file=$1"),
+
+  ("PARQUET_UNRECOGNIZED_SCHEMA", 55, "Unrecognized $0 schema:\\n$1"),
+
+  ("COLLECTION_ALLOC_FAILED", 56, "Failed to allocate buffer for collection '$0'."),
+
+  ("TMP_DEVICE_BLACKLISTED", 57,
+    "Temporary device for directory $0 is blacklisted from a previous error and cannot "
+    "be used."),
+
+  ("TMP_FILE_BLACKLISTED", 58,
+    "Temporary file $0 is blacklisted from a previous error and cannot be expanded."),
 )
 
 import sys

@@ -31,6 +31,7 @@
 #include "runtime/lib-cache.h"
 #include "runtime/mem-tracker.h"
 #include "runtime/thread-resource-mgr.h"
+#include "runtime/tmp-file-mgr.h"
 #include "scheduling/request-pool-service.h"
 #include "service/frontend.h"
 #include "service/impala-server.h"
@@ -154,6 +155,7 @@ ExecEnv::ExecEnv(const string& server_id, bool running_planner, bool running_wor
     cgroups_mgr_(NULL),
     hdfs_op_thread_pool_(
         CreateHdfsOpThreadPool("hdfs-worker-pool", FLAGS_num_hdfs_worker_threads, 1024)),
+    tmp_file_mgr_(new TmpFileMgr),
     request_pool_service_(new RequestPoolService(metrics_.get())),
     frontend_(new Frontend(running_planner, running_worker)),
     enable_webserver_(FLAGS_enable_webserver),
@@ -213,6 +215,7 @@ ExecEnv::ExecEnv(const string& hostname, int backend_port, int subscriber_port,
     thread_mgr_(new ThreadResourceMgr),
     hdfs_op_thread_pool_(
         CreateHdfsOpThreadPool("hdfs-worker-pool", FLAGS_num_hdfs_worker_threads, 1024)),
+    tmp_file_mgr_(new TmpFileMgr),
     frontend_(new Frontend(false, false)),
     enable_webserver_(FLAGS_enable_webserver && webserver_port > 0),
     tz_database_(TimezoneDatabase()),
