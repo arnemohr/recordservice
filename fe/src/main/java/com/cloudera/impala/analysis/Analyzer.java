@@ -2275,14 +2275,47 @@ public class Analyzer {
       registerPrivReq(pb.allOf(privilege).onDb(dbName).toRequest());
     }
 
-    Db db = getDb(dbName);
-    if (db == null && throwIfDoesNotExist) {
-      throw new AnalysisException(DB_DOES_NOT_EXIST_ERROR_MSG + dbName);
-    }
+    Db db = getDb(dbName, throwIfDoesNotExist);
     globalState_.accessEvents.add(new TAccessEvent(
         dbName, TCatalogObjectType.DATABASE, privilege.toString()));
     return db;
   }
+
+  /**
+   * Returns a Catalog Db object without checking for privileges.
+   */
+  public Db getDb(String dbName, boolean throwIfDoesNotExist)
+      throws AnalysisException {
+    Db db = getDb(dbName);
+    if (db == null && throwIfDoesNotExist) {
+      throw new AnalysisException(DB_DOES_NOT_EXIST_ERROR_MSG + dbName);
+    }
+    return db;
+  }
+
+  /**
+   * Return db according to the name. Return null if db is not found.
+   * If RecordServiceCatalog is used, get table from globalState_.tblMap_. If table is
+   * not in tblMap_, call RecordServiceCatalog.getTable() to reload table.
+   */
+  private Db getDb(String dbName) throws AnalysisException {
+    Db db = null;
+    if (isRecordService()) {
+      // Get db from RecordServiceCatalog if db is not contained in dbMap_.
+      if (!globalState_.dbMap_.containsKey(dbName)) {
+        db = getCatalog().getDb(dbName);
+        // Store db into dbMap_.
+        if (db != null) {
+          globalState_.dbMap_.put(dbName, db);
+        }
+      }
+      db = globalState_.dbMap_.get(dbName);
+    } else {
+      db = getCatalog().getDb(dbName);
+    }
+    return db;
+  }
+
 
   /**
    * Checks if the given database contains the given table for the given Privilege
@@ -2397,29 +2430,6 @@ public class Analyzer {
    */
   private boolean isRecordService() throws AnalysisException {
     return getCatalog() instanceof RecordServiceCatalog;
-  }
-
-  /**
-   * Return db according to the name. Return null if db is not found.
-   * If RecordServiceCatalog is used, get table from globalState_.tblMap_. If table is
-   * not in tblMap_, call RecordServiceCatalog.getTable() to reload table.
-   */
-  private Db getDb(String dbName) throws AnalysisException {
-    Db db = null;
-    if (isRecordService()) {
-      // Get db from RecordServiceCatalog if db is not contained in dbMap_.
-      if (!globalState_.dbMap_.containsKey(dbName)) {
-        db = getCatalog().getDb(dbName);
-        // Store db into dbMap_.
-        if (db != null) {
-          globalState_.dbMap_.put(dbName, db);
-        }
-      }
-      db = globalState_.dbMap_.get(dbName);
-    } else {
-      db = getCatalog().getDb(dbName);
-    }
-    return db;
   }
 
   /**
