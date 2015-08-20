@@ -586,13 +586,35 @@ public class Frontend {
       Iterator<String> iter = tblNames.iterator();
       while (iter.hasNext()) {
         PrivilegeRequest privilegeRequest = new PrivilegeRequestBuilder()
-            .allOf(Privilege.ANY).onTable(dbName, iter.next()).toRequest();
+            .any().onAnyColumn(dbName, iter.next()).toRequest();
         if (!authzChecker_.get().hasAccess(user, privilegeRequest)) {
           iter.remove();
         }
       }
     }
     return tblNames;
+  }
+
+  /**
+   * Returns all columns of a table that match a pattern and are accessible to
+   * the given user. If pattern is null, it matches all columns.
+   */
+  public List<Column> getColumns(Table table, PatternMatcher columnPattern,
+      User user) {
+    Preconditions.checkNotNull(table);
+    List<Column> columns = Lists.newArrayList();
+    for (Column column: table.getColumnsInHiveOrder()) {
+      String colName = column.getName();
+      if (!columnPattern.matches(colName)) continue;
+      if (authzConfig_.isEnabled()) {
+        PrivilegeRequest privilegeRequest = new PrivilegeRequestBuilder()
+            .any().onColumn(table.getTableName().getDb(), table.getTableName().getTbl(),
+            colName).toRequest();
+        if (!authzChecker_.get().hasAccess(user, privilegeRequest)) continue;
+      }
+      columns.add(column);
+    }
+    return columns;
   }
 
   /**
@@ -796,7 +818,7 @@ public class Frontend {
       // Authorize all accesses.
       // AuthorizationExceptions must take precedence over any AnalysisException
       // that has been thrown, so perform the authorization first.
-      analysisCtx.getAnalyzer().authorize(getAuthzChecker());
+      analysisCtx.authorize(getAuthzChecker());
     }
   }
 

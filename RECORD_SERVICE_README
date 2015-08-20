@@ -12,18 +12,17 @@ Last rebase: 8/20/2015
 Skipped:
 Add option in generate_metrics.py to output CM mdl
 7a9cef33676aa112d557fd349d4b05e111b8f88e
-
 Lower-case units in generated metrics mdl file
 322b336485df0f48155bdbf5cfc68c01fabce295
 
 Python Virtual Env
 d8de07c01e39b2aae4cdbe81b40a9ed1fcf5dc36 
-
 Python Virtual Env
 0e709a9c05662bd06e2602929881dc6522c584c3 
-
 Python Virtual Env
 4cfe20cbd9dbf394b1a551382f30a169bc595518
+Python: Add thrift_sasl to virtualenv
+060561d061cb98d01089cb7979e3132f60ca3121
 
 Fix avro schema handling in FE (too many conflicts)
 af46f26e130f4bb73214d1b40d5779c661535fec
@@ -32,13 +31,12 @@ IMPALA-2042: Added validation for avro.schema.literal/url.
 
 IMPALA-2251: disallow clashing text delimiters
 cc7246b0ef2a760fffef1a1c378d350d6d37b5e3
-
 IMPALA-2257: fix broken build caused by IMPALA-2251 fix
 8fcdff03363fa663fbf1d049659cc35f193aaa9d
 
 Nested Types: Check un/supported file formats for complex types.
-2b4d7ecd22e914f0f4c9d612f76de22fe1d484d9
 
+2b4d7ecd22e914f0f4c9d612f76de22fe1d484d9
 IMPALA-1136, IMPALA-2161: Skip \u0000 characters when dealing Avro (Need toolchain update)
 9880145daa79f5cc603908ddf7aac6fc61e642d2
 
@@ -47,3 +45,15 @@ fc2c96feb49e10af0a9ae8098f0acea7b64b063e
 
 Nested types: read and materialize nested types in Parquet scanner
 11baac311f1462748e11bd88cd51a178c6effb1d
+Disable nested types tests affected by IMPALA-2295
+73136edfab594c00d1ab4491f44833e61e4b2c53
+IMPALA-2289: Properly handle AtCapacity() in SubplaNode.
+beb3e30bf5488ab07c7bbfa85ba54222cd5179fa
+IMPALA-2289: Properly set eos_ in the BlockingJoinNode when the probe…
+4258790af4fd078b27aff230460ecb0cb51431a9
+Fix nested types tpch test formatting
+d72496a41d607b86d3e6b82b3e563a4917d3421b
+IMPALA-2296: missing DeepCopy array support
+e9c21ad625ea54d972cbe88c2e36ec9162df662e
+IMPALA-2295: deep copy arrays in BufferedTupleStream
+3f5f97663d94a0f30f8475d65d9fa3d3c49c3d5f
