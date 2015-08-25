@@ -197,6 +197,9 @@ struct TQueryCtx {
 
   // Set if this is a record service request.
   10: optional bool is_record_service_request = false
+
+  // List of tables suspected to have corrupt stats
+  11: optional list<CatalogObjects.TTableName> tables_with_corrupt_stats
 }
 
 // Context of a fragment instance, including its unique id, the total number
