@@ -220,7 +220,7 @@ public class CreateTableStmt extends StatementBase {
       location_.analyze(analyzer, Privilege.ALL, FsAction.READ_WRITE);
     }
 
-    analyzeRowFormat();
+    analyzeRowFormat(analyzer);
 
     // Check that all the column names are valid and unique.
     analyzeColumnDefs(analyzer);
@@ -245,24 +245,25 @@ public class CreateTableStmt extends StatementBase {
     serdeProperties_.put(key, value);   
   }
 
-  private void analyzeRowFormat() throws AnalysisException {
+  private void analyzeRowFormat(Analyzer analyzer) throws AnalysisException {
     Byte fieldDelim = analyzeRowFormatValue(rowFormat_.getFieldDelimiter());
     Byte lineDelim = analyzeRowFormatValue(rowFormat_.getLineDelimiter());
     Byte escapeChar = analyzeRowFormatValue(rowFormat_.getEscapeChar());
     if (fileFormat_ == THdfsFileFormat.TEXT) {
       if (fieldDelim == null) fieldDelim = HdfsStorageDescriptor.DEFAULT_FIELD_DELIM;
       if (lineDelim == null) lineDelim = HdfsStorageDescriptor.DEFAULT_LINE_DELIM;
+      if (escapeChar == null) escapeChar = HdfsStorageDescriptor.DEFAULT_ESCAPE_CHAR;
       if (fieldDelim != null && lineDelim != null && fieldDelim.equals(lineDelim)) {
         throw new AnalysisException("Field delimiter and line delimiter have same " +
             "value: byte " + fieldDelim);
       }
       if (fieldDelim != null && escapeChar != null && fieldDelim.equals(escapeChar)) {
-        throw new AnalysisException("Field delimiter and escape character have same " +
-            "value: byte " + fieldDelim);
+        analyzer.addWarning("Field delimiter and escape character have same value: " +
+            "byte " + fieldDelim + ". Escape character will be ignored");
       }
       if (lineDelim != null && escapeChar != null && lineDelim.equals(escapeChar)) {
-        throw new AnalysisException("Line delimiter and escape character have same " +
-            "value: byte " + lineDelim);
+        analyzer.addWarning("Line delimiter and escape character have same value: " +
+            "byte " + lineDelim + ". Escape character will be ignored");
       }
     }
   }
