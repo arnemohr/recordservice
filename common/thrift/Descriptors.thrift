@@ -54,11 +54,6 @@ struct TColumnDescriptor {
   2: required Types.TColumnType type
 }
 
-struct TColumnDescriptor {
-  1: required string name
-  2: required Types.TColumnType type
-}
-
 // "Union" of all table types.
 struct TTableDescriptor {
   1: required Types.TTableId id

@@ -197,7 +197,7 @@ Status HdfsHiveSerdeScanner::WriteRowBatch(
     (*tuple_row)->SetTuple(scan_node_->tuple_idx(), tuple_);
     if (EvalConjuncts(*tuple_row)) {
       ++*num_tuples_materialized;
-      tuple_ = next_tuple(tuple_);
+      tuple_ = next_tuple(tuple_byte_size_, tuple_);
       *tuple_row = next_row(*tuple_row);
     }
   }
