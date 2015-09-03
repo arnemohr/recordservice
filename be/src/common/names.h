@@ -50,6 +50,14 @@ using std::multiset;
 using std::stack;
 #endif
 
+#ifdef _GLIBCXX_QUEUE
+using std::queue;
+#endif
+
+#ifdef _GLIBCXX_DEQUE
+using std::deque;
+#endif
+
 #ifdef _GLIBCXX_STRING
 using std::string;
 #endif
