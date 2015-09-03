@@ -18,7 +18,7 @@
 
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/mutex.hpp>
-#include <list>
+#include <deque>
 #include <unistd.h>
 
 #include "util/condition-var.h"
@@ -122,7 +122,7 @@ class BlockingQueue {
   ConditionVariable put_cv_;   // 'put' callers wait on this
   /// lock_ guards access to list_, total_get_wait_time, and total_put_wait_time
   mutable Lock lock_;
-  std::list<T> list_;
+  std::deque<T> list_;
   int64_t total_get_wait_time_;
   int64_t total_put_wait_time_;
 };
