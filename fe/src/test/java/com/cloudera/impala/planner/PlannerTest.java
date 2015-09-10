@@ -66,10 +66,18 @@ public class PlannerTest extends PlannerTestBase {
     runPlannerTestFile("hdfs");
   }
 
-  @Test
-  public void testNestedCollections() {
-    runPlannerTestFile("nested-collections");
-  }
+
+//  IMPALA-2315: Re enable after a good snapshot.
+//  @Test
+//  public void testNestedCollections() {
+//    runPlannerTestFile("nested-collections");
+//  }
+
+//  IMPALA-2315: Re enable after a good snapshot.
+//  @Test
+//  public void testComplexTypesFileFormats() {
+//    runPlannerTestFile("complex-types-file-formats");
+//  }
 
   @Test
   public void testJoins() {
@@ -161,10 +169,11 @@ public class PlannerTest extends PlannerTestBase {
     runPlannerTestFile("tpch-all");
   }
 
-  @Test
-  public void testTpchNested() {
-    runPlannerTestFile("tpch-nested", "tpch_nested_parquet");
-  }
+//  IMPALA-2315: Re enable after a good snapshot.
+//  @Test
+//  public void testTpchNested() {
+//    runPlannerTestFile("tpch-nested", "tpch_nested_parquet");
+//  }
 
   @Test
   public void testTpcds() {
