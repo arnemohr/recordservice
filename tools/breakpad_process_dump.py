@@ -23,8 +23,12 @@ import os
 import shutil
 import subprocess
 
+BREAKPAD_DEFAULT_HOME = os.environ['IMPALA_TOOLCHAIN'] + "/breakpad-" +\
+   os.environ['IMPALA_BREAKPAD_VERSION']
+
 parser = OptionParser()
-parser.add_option("--stackwalk", dest="stackwalk_binary", default="minidump_stackwalk",
+parser.add_option("--stackwalk", dest="stackwalk_binary",
+    default=BREAKPAD_DEFAULT_HOME + "/bin/minidump_stackwalk",
     help="Path to minidump_stackwalk tool")
 options, args = parser.parse_args()
 
