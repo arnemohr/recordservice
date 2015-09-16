@@ -60,8 +60,8 @@
       "label" : "Record Service Planner Port",
       "description" : "The port the RecordService planner will be set to run on. Clients need to connect on this port.",
       "required" : "true",
-          "type" : "port",
-          "default" : 40000
+      "type" : "port",
+      "default" : 40000
     },
     {
       "name" : "recordservice_worker_port",
@@ -310,5 +310,89 @@
         }
       }
     }
-  ]
+  ],
+  "externalKerberosPrincipals" : [
+    {
+      "name" : "external_kerberos_principal",
+      "primary" : "${principal}",
+      "instance" : "${host}"
+    }
+  ],
+  "gateway" : {
+    "alternatives" : {
+      "name" : "hadoop-conf",
+      "linkRoot" : "/etc/hadoop",
+      "priority" : 90
+    },
+    "scriptRunner" : {
+      "program" : "scripts/client.sh",
+      "args" : ["deploy"],
+      "environmentVariables" : {
+        "PLANNER_CONF_FILE" : "planner.properties",
+        "PW_CONF_FILE" : "pw.properties",
+        "RECORDSERVICE_CONF_FILE" : "recordservice-site.xml"
+      }
+    },
+    "parameters" : [
+      {
+        "name" : "planner_rpc_timeout_ms",
+        "label" : "planner rpc timeout ms",
+        "description" : "Millisecond timeout on the planner RPCs",
+        "required" : "true",
+        "configName": "recordservice.planner.rpc.timeoutMs",
+        "type" : "long",
+        "default" : "-1"
+      },
+      {
+        "name" : "worker_rpc_timeout_ms",
+        "label" : "worker rpc timeout ms",
+        "description" : "Millisecond timeout on the worker RPCs.",
+        "required" : "true",
+        "configName": "recordservice.worker.rpc.timeoutMs",
+        "type" : "long",
+        "default" : "-1"
+      },
+      {
+        "name" : "task_enable_server_logging",
+        "label" : "task enable server logging",
+        "description" : "If true, enable server logging (logging level from log4j).",
+        "required" : "true",
+        "configName": "recordservice.task.server.enableLogging",
+        "type" : "boolean",
+        "default" : "false"
+      }
+    ],
+    "configWriter" : {
+      "generators" : [
+        {
+          "filename" : "hadoop-conf/recordservice-site.xml",
+          "configFormat" : "hadoop_xml",
+          "includedParams" : [
+            "planner_rpc_timeout_ms",
+            "worker_rpc_timeout_ms",
+            "task_enable_server_logging"
+          ],
+          "kerberosPrincipals": [
+            {
+              "principalName" : "external_kerberos_principal",
+              "propertyName" : "recordservice.kerberos.principal",
+              "external" : "true"
+            }
+          ]
+        }
+      ],
+      "peerConfigGenerators" : [
+        {
+          "filename" : "hadoop-conf/planner.properties",
+          "params" : ["recordservice_planner_port"],
+          "roleName": "RECORD_SERVICE_PLANNER"
+        },
+        {
+          "filename" : "hadoop-conf/pw.properties",
+          "params" : ["recordservice_planner_port"],
+          "roleName": "RECORD_SERVICE_PW"
+        }
+      ]
+    }
+  }
 }
