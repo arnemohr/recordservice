@@ -301,10 +301,19 @@ class ImpalaServer::RecordServiceParquetResultSet : public ImpalaServer::BaseRes
             string& dst = batch.cols[c].data;
             int offset = dst.size();
             const StringValue* sv = tuple->GetStringSlot(slot_descs_[c].byte_offset);
-            int len = sv->len + sizeof(int32_t);
-            dst.resize(offset + len);
-            memcpy((char*)dst.data() + offset, &sv->len, sizeof(int32_t));
-            memcpy((char*)dst.data() + offset + sizeof(int32_t), sv->ptr, sv->len);
+            if (types_[c].type == TYPE_CHAR) {
+              // CHAR(N) is too long and not inlined. Impala treats it as a StringValue
+              // but we don't want to include the constant length in the serialized
+              // result.
+              int len = types_[c].len;
+              dst.resize(offset + len);
+              memcpy((char*)dst.data() + offset, sv->ptr, len);
+            } else {
+              int len = sv->len + sizeof(int32_t);
+              dst.resize(offset + len);
+              memcpy((char*)dst.data() + offset, &sv->len, sizeof(int32_t));
+              memcpy((char*)dst.data() + offset + sizeof(int32_t), sv->ptr, sv->len);
+            }
           } else {
             const void* slot = tuple->GetSlot(slot_descs_[c].byte_offset);
             if (types_[c] == TYPE_TIMESTAMP) {
@@ -360,10 +369,19 @@ class ImpalaServer::RecordServiceParquetResultSet : public ImpalaServer::BaseRes
           const int type_size = type_sizes_[c];
           if (type_size == 0) {
             const StringValue* sv = reinterpret_cast<const StringValue*>(v);
-            int len = sv->len + sizeof(int32_t);
-            data.resize(offset + len);
-            memcpy((char*)data.data() + offset, &sv->len, sizeof(int32_t));
-            memcpy((char*)data.data() + offset + sizeof(int32_t), sv->ptr, sv->len);
+            if (types_[c].type == TYPE_CHAR) {
+              // CHAR(N) is too long and not inlined. Impala treats it as a StringValue
+              // but we don't want to include the constant length in the serialized
+              // result.
+              int len = types_[c].len;
+              data.resize(offset + len);
+              memcpy((char*)data.data() + offset, sv->ptr, len);
+            } else {
+              int len = sv->len + sizeof(int32_t);
+              data.resize(offset + len);
+              memcpy((char*)data.data() + offset, &sv->len, sizeof(int32_t));
+              memcpy((char*)data.data() + offset + sizeof(int32_t), sv->ptr, sv->len);
+            }
           } else {
             data.resize(offset + type_size);
             memcpy((char*)data.data() + offset, v, type_size);
@@ -1076,14 +1094,18 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
       for (int j = 0; j < combined_tasks[i].local_hosts.size(); ++j) {
         int global_idx = combined_tasks[i].local_hosts[j];
         const TNetworkAddress& addr = all_hosts[global_idx];
+
+        // This scan range is not from a DN (e.g. S3). There are no-local
+        // ranges.
+        if (!addr.__isset.hdfs_host_name) continue;
+
         recordservice::TNetworkAddress host;
-        DCHECK(addr.__isset.hdfs_host_name);
         host.hostname = addr.hdfs_host_name;
         host.port = addr.port;
 
         if (host.port == -1) {
           // This indicates that we have DNs where there is no RecordService
-          // worker running. Don't set those nodes are being local.
+          // worker running. Don't set those nodes as being local.
           VLOG(2) << "No RecordService worker running on host: " << host.hostname;
           continue;
         }
@@ -1126,6 +1148,22 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
           }
           local_hosts[k].host_idx = global_to_local_hosts[local_hosts[k].host_idx];
           scan_range.locations.push_back(local_hosts[k]);
+        }
+
+        if (scan_range.locations.size() == 0) {
+          // In this case, this scan range does not live on any DN (e.g. S3). Fabricate
+          // a host name so that the BE can execute it. Locality does not matter.
+          // TODO: revisit how we deal with this. The FE normally does this for Impala
+          // (but that might be a questionable choice as well).
+          DCHECK_EQ(query_request.host_list.size(), 0);
+          TNetworkAddress fabricated_host;
+          fabricated_host.hostname = "remote*addr";
+          fabricated_host.port = 0;
+          query_request.host_list.push_back(fabricated_host);
+
+          TScanRangeLocation fabricated_loation;
+          fabricated_loation.host_idx = 0;
+          scan_range.locations.push_back(fabricated_loation);
         }
 
         // Populate the partition descriptors for the referenced partitions.

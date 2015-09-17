@@ -447,7 +447,6 @@ Status RecordServiceScanNode::ProcessTask(
           case TYPE_FLOAT:
           case TYPE_DOUBLE:
           case TYPE_DECIMAL:
-          case TYPE_CHAR:
             memcpy(slot, data_values[c], materialized_slots_[c]->type().GetByteSize());
             data_values[c] += materialized_slots_[c]->type().GetByteSize();
             break;
@@ -458,6 +457,22 @@ Status RecordServiceScanNode::ProcessTask(
             int32_t nanos = *reinterpret_cast<const int32_t*>(data_values[c]);
             data_values[c] += sizeof(int32_t);
             reinterpret_cast<TimestampValue*>(slot)->FromMillisAndNanos(millis, nanos);
+            break;
+          }
+
+          case TYPE_CHAR: {
+            if (materialized_slots_[c]->type().GetByteSize() != 0) {
+              memcpy(slot, data_values[c], materialized_slots_[c]->type().len);
+              data_values[c] += materialized_slots_[c]->type().GetByteSize();
+            } else {
+              // CHAR is too long and not inlined. Treat it like STRING.
+              StringValue* sv = reinterpret_cast<StringValue*>(slot);
+              sv->len = materialized_slots_[c]->type().len;
+              sv->ptr = reinterpret_cast<char*>(
+                  row_batch->tuple_data_pool()->Allocate(sv->len));
+              memcpy(sv->ptr, data_values[c], sv->len);
+              data_values[c] += sv->len;
+            }
             break;
           }
 

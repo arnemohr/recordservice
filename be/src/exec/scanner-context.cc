@@ -50,9 +50,10 @@ void ScannerContext::ReleaseCompletedResources(RowBatch* batch, bool done) {
     streams_[i]->ReleaseCompletedResources(batch, done);
   }
   if (done) {
-    DCHECK_GT(streams_.size(), 0);
-    QUERY_VLOG_FILE(state_->logger()) << "Node " << scan_node_->id()
-        << " Finished processing " << streams_[0]->scan_range_->file();
+    if (streams_.size() > 0) {
+      QUERY_VLOG_FILE(state_->logger()) << "Node " << scan_node_->id()
+          << " Finished processing " << streams_[0]->scan_range_->file();
+    }
     streams_.clear();
   }
 }
