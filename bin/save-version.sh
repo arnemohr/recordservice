@@ -13,11 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Generates the impala version and build information.
-# Note: for internal (aka pre-release) versions, the version should have
-# "-INTERNAL" appended. Parts of the code will look for this to distinguish
-# between released and internal versions.
-VERSION=2.2.0-record-service-cdh5
+# Generates the Record Service version string. Format is:
+# <record service version>-<cdh version>
+VERSION=0.2.0-cdh5
 GIT_HASH=$(git rev-parse HEAD)
 BUILD_TIME=`date`
 HEADER="# Generated version information from save-version.sh"
