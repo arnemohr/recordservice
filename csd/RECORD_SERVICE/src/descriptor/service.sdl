@@ -58,22 +58,22 @@
     {
       "name" : "recordservice_planner_port",
       "label" : "Record Service Planner Port",
-      "description" : "The port the RecordService planner will be set to run on. Clients need to connect on this port.",
+      "description" : "The port the RecordService Planner will be set to run on. Clients need to connect on this port.",
       "required" : "true",
       "type" : "port",
       "default" : 40000
     },
     {
       "name" : "recordservice_worker_port",
-      "label" : "Record Service worker Port",
-      "description" : "The port the RecordService worker will be set to run on.",
+      "label" : "Record Service Worker Port",
+      "description" : "The port the RecordService Worker will be set to run on.",
       "required" : "true",
       "type" : "port",
       "default" : 40100
     },
     {
       "name" : "webserver_port",
-      "label" : "webserver port for debug",
+      "label" : "Debug Webserver Port",
       "description" : "The port for the server debug webpage.",
       "required" : "true",
       "type" : "port",
@@ -81,24 +81,24 @@
     },
     {
       "name" : "log_filename",
-      "label" : "log filename",
-      "description" : "log filename",
+      "label" : "Log Filename",
+      "description" : "Log filename.",
       "required" : "true",
       "type" : "string",
       "default" : "recordserviced"
     },
     {
       "name" : "log_dir",
-      "label" : "log directory for recordservice",
-      "description" : "log directory for recordservice",
+      "label" : "Log Directory",
+      "description" : "Log directory.",
       "required" : "true",
       "type" : "string",
       "default" : "/var/log/recordserviced"
     },
     {
       "name" : "v",
-      "label" : "Logging level",
-      "description" : "Server logging level. Higher is more verbose",
+      "label" : "Logging Level",
+      "description" : "Server logging level. Higher is more verbose.",
       "required" : "true",
       "type" : "long",
       "min" : "0",
@@ -132,7 +132,7 @@
     },
     {
       "name" : "mem_limit",
-      "label" : "memory limit",
+      "label" : "Memory Limit",
       "description" : "The maximum memory allocated for each server. The server will fail requests if the memory usage goes above this.",
       "required" : "true",
       "type" : "memory",
@@ -142,14 +142,14 @@
     },
     {
       "name" : "sentry_config",
-      "label" : "sentry config",
+      "label" : "Sentry Configuration File",
       "description" : "sentry-site.xml configuration file.",
       "type" : "string",
       "default" : ""
     },
     {
       "name" : "advanced_config",
-      "label" : "Advanced Configration",
+      "label" : "Advanced Configuration",
       "description" : "Any configs added here will be overriden by their default values. This should be specified as --<key>=<value>, separated by spaces.",
       "type" : "string",
       "default" : ""
@@ -336,8 +336,8 @@
     "parameters" : [
       {
         "name" : "planner_rpc_timeout_ms",
-        "label" : "planner rpc timeout ms",
-        "description" : "Millisecond timeout on the planner RPCs",
+        "label" : "Planner RPC Timeout MS",
+        "description" : "Millisecond timeout on the planner RPCs.",
         "required" : "true",
         "configName": "recordservice.planner.rpc.timeoutMs",
         "type" : "long",
@@ -345,7 +345,7 @@
       },
       {
         "name" : "worker_rpc_timeout_ms",
-        "label" : "worker rpc timeout ms",
+        "label" : "Worker RPC Timeout MS",
         "description" : "Millisecond timeout on the worker RPCs.",
         "required" : "true",
         "configName": "recordservice.worker.rpc.timeoutMs",
@@ -353,11 +353,11 @@
         "default" : "-1"
       },
       {
-        "name" : "task_enable_server_logging",
-        "label" : "task enable server logging",
-        "description" : "If true, enable server logging (logging level from log4j).",
+        "name" : "worker_enable_server_logging",
+        "label" : "Enable Worker Logging",
+        "description" : "If true, enable more fine grained server logging for this worker.",
         "required" : "true",
-        "configName": "recordservice.task.server.enableLogging",
+        "configName": "recordservice.worker.server.enableLogging",
         "type" : "boolean",
         "default" : "false"
       }
@@ -370,7 +370,7 @@
           "includedParams" : [
             "planner_rpc_timeout_ms",
             "worker_rpc_timeout_ms",
-            "task_enable_server_logging"
+            "worker_enable_server_logging"
           ],
           "kerberosPrincipals": [
             {
