@@ -393,6 +393,7 @@ Status DiskIoMgr::ScanRange::Read(char* buffer, int64_t* bytes_read, bool* eosr)
   DCHECK_LE(sizeof(max_buffer_size_), sizeof(int));
   int bytes_to_read =
       min(static_cast<int64_t>(max_buffer_size_), len_ - bytes_read_);
+  DCHECK_GE(bytes_to_read, 0);
 
   if (fs_ != NULL) {
     DCHECK(hdfs_file_ != NULL);
@@ -412,12 +413,20 @@ Status DiskIoMgr::ScanRange::Read(char* buffer, int64_t* bytes_read, bool* eosr)
   } else {
     DCHECK(local_file_ != NULL);
     *bytes_read = fread(buffer, 1, bytes_to_read, local_file_);
-    if (*bytes_read < 0) {
-      string error_msg = GetStrErrMsg();
-      stringstream ss;
-      ss << "Could not read from " << file_ << " at byte offset: "
-         << bytes_read_ << ": " << error_msg;
-      return Status(ss.str());
+    DCHECK_GE(*bytes_read, 0);
+    DCHECK_LE(*bytes_read, bytes_to_read);
+    if (*bytes_read < bytes_to_read) {
+      if (ferror(local_file_) != 0) {
+        string error_msg = GetStrErrMsg();
+        stringstream ss;
+        ss << "Error reading from " << file_ << " at byte offset: "
+           << (offset_ + bytes_read_) << ": " << error_msg;
+        return Status(ss.str());
+      } else {
+        // On Linux, we should only get partial reads from block devices on error or eof.
+        DCHECK(feof(local_file_) != 0);
+        *eosr = true;
+      }
     }
   }
   QUERY_VLOG_BUFFER(reader_->logger())
