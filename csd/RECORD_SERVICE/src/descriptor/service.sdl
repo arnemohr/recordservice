@@ -15,8 +15,8 @@
 // limitations under the License.
 {
   "name" : "RECORD_SERVICE",
-  "label" : "Record Service (Beta)",
-  "description" : "The Record Service",
+  "label" : "RecordService (Beta)",
+  "description" : "The RecordService",
   "version" : "0.1.0",
   "compatibility" : {
     "cdhVersion" : {
@@ -32,7 +32,7 @@
   },
   "icon" : "images/icon.png",
   "parcel" : {
-    /* Automatically add the record service parcel repository */
+    /* Automatically add the recordservice parcel repository */
     "repoUrl" : "http://repos.jenkins.cloudera.com/recordservice-nightly/parcels/latest/",
     "requiredTags" : ["recordservice", "cdh"]
   },
@@ -57,7 +57,7 @@
   "parameters" : [
     {
       "name" : "recordservice_planner_port",
-      "label" : "Record Service Planner Port",
+      "label" : "RecordService Planner Port",
       "description" : "The port the RecordService Planner will be set to run on. Clients need to connect on this port.",
       "required" : "true",
       "type" : "port",
@@ -65,7 +65,7 @@
     },
     {
       "name" : "recordservice_worker_port",
-      "label" : "Record Service Worker Port",
+      "label" : "RecordService Worker Port",
       "description" : "The port the RecordService Worker will be set to run on.",
       "required" : "true",
       "type" : "port",
@@ -158,8 +158,8 @@
   "roles" : [
     {
       "name" : "RECORD_SERVICE_PW",
-      "label" : "Record Service Planner and Worker",
-      "pluralLabel" : "record service planner and worker",
+      "label" : "RecordService Planner and Worker",
+      "pluralLabel" : "RecordService planner and worker",
       "logging" : {
         "dir" : "/var/log/recordserviced",
         "filename" : "recordserviced.INFO"
@@ -209,8 +209,8 @@
     },
     {
       "name" : "RECORD_SERVICE_PLANNER",
-      "label" : "Record Service Planner",
-      "pluralLabel" : "Record Service Planners",
+      "label" : "RecordService Planner",
+      "pluralLabel" : "RecordService Planners",
       "logging" : {
         "dir" : "/var/log/recordserviced",
         "filename" : "recordserviced.INFO"
@@ -259,8 +259,8 @@
     },
     {
       "name" : "RECORD_SERVICE_WORKER",
-      "label" : "Record Service Worker",
-      "pluralLabel" : "Record Service Workers",
+      "label" : "RecordService Worker",
+      "pluralLabel" : "RecordService Workers",
       "logging" : {
         "dir" : "/var/log/recordserviced",
         "filename" : "recordserviced.INFO"

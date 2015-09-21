@@ -7,7 +7,7 @@
   <artifactId>RECORD_SERVICE</artifactId>
   <packaging>pom</packaging>
   <version>1.0</version>
-  <name>The Record Service CSD</name>
+  <name>The RecordService CSD</name>
 
   <repositories>
     <repository>
