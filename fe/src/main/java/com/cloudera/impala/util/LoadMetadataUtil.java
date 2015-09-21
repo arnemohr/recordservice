@@ -138,6 +138,9 @@ public class LoadMetadataUtil {
    * modified, and not 'isMarkedCached' - partition marked as cached, just reuse the one
    * in cache. Otherwise it will create a new File description with filename, file length
    * and modification time.
+   *
+   * Must be threadsafe. Access to 'oldFileDescMap', 'perFsFileBlocks', 'hostIndex' and
+   * 'fileDescMap' must be protected.
    */
   public static List<FileDescriptor> loadFileDescriptors(FileSystem fs, Path dirPath,
       Map<String, List<FileDescriptor>> oldFileDescMap, HdfsFileFormat fileFormat,
@@ -154,10 +157,12 @@ public class LoadMetadataUtil {
 
       // Add partition dir to fileDescMap if it does not exist.
       String partitionDir = fileStatus.getPath().getParent().toString();
-      if (!fileDescMap.containsKey(partitionDir)) {
-        fileDescMap.put(partitionDir,new ArrayList<FileDescriptor>());
+      synchronized (fileDescMap) {
+        if (!fileDescMap.containsKey(partitionDir)) {
+          fileDescMap.put(partitionDir, new ArrayList<FileDescriptor>());
+        }
+        fileDescMap.get(partitionDir).add(fd);
       }
-      fileDescMap.get(partitionDir).add(fd);
 
       // Add to the list of FileDescriptors for this partition.
       fileDescriptors.add(fd);
@@ -298,6 +303,9 @@ public class LoadMetadataUtil {
    * 'isMarkedCached' - partition marked as cached, just reuse the one in cache. Otherwise
    * it will create a new File description with filename, file length and modification
    * time.
+   *
+   * Must be thread safe. Access to 'oldFileDescMap', 'perFsFileBlocks' and 'hostIndex'
+   * must be protected.
    */
   private static FileDescriptor getFileDescriptor(FileSystem fs, FileStatus fileStatus,
       HdfsFileFormat fileFormat, Map<String, List<FileDescriptor>> oldFileDescMap,
@@ -318,13 +326,17 @@ public class LoadMetadataUtil {
     FileDescriptor fd = null;
     // Search for a FileDescriptor with the same partition dir and file name. If one
     // is found, it will be chosen as a candidate to reuse.
-    if (oldFileDescMap != null && oldFileDescMap.get(partitionDir) != null) {
-      for (FileDescriptor oldFileDesc: oldFileDescMap.get(partitionDir)) {
-        // TODO: This doesn't seem like the right data structure if a directory has a lot
-        // of files.
-        if (oldFileDesc.getFileName().equals(fileName)) {
-          fd = oldFileDesc;
-          break;
+    if (oldFileDescMap != null) {
+      synchronized (oldFileDescMap) {
+        if (oldFileDescMap.get(partitionDir) != null) {
+          for (FileDescriptor oldFileDesc: oldFileDescMap.get(partitionDir)) {
+            // TODO: This doesn't seem like the right data structure if a directory has
+            // a lot of files.
+            if (oldFileDesc.getFileName().equals(fileName)) {
+              fd = oldFileDesc;
+              break;
+            }
+          }
         }
       }
     }
@@ -349,6 +361,8 @@ public class LoadMetadataUtil {
   /**
    * Create FileBlock according to BlockLocation and hostIndex. Get host names and ports
    * from BlockLocation, and get all replicas' host id from hostIndex.
+   *
+   * Must be threadsafe. Access to 'hostIndex' must be protected.
    */
   private static FileBlock createFileBlock(BlockLocation loc,
       ListMap<TNetworkAddress> hostIndex) throws IOException {
@@ -374,8 +388,11 @@ public class LoadMetadataUtil {
       TNetworkAddress networkAddress = BlockReplica.parseLocation(blockHostPorts[i]);
       Preconditions.checkState(networkAddress != null);
       networkAddress.setHdfs_host_name(blockHostNames[i]);
-      replicas.add(new BlockReplica(hostIndex.getIndex(networkAddress),
-          cachedHosts.contains(blockHostNames[i])));
+      int idx = -1;
+      synchronized (hostIndex) {
+        idx = hostIndex.getIndex(networkAddress);
+      }
+      replicas.add(new BlockReplica(idx, cachedHosts.contains(blockHostNames[i])));
     }
     return new FileBlock(loc.getOffset(), loc.getLength(), replicas);
   }
@@ -416,6 +433,8 @@ public class LoadMetadataUtil {
    * given file. Adds the newly created block metadata and block location to the
    * perFsFileBlocks, so that the disk IDs for each block can be retrieved with one call
    * to DFS.
+   *
+   * Must be threadsafe. Access to 'perFsFileBlocks' and 'hostIndex' must be protected.
    */
   private static void loadBlockMetadata(FileSystem fs, FileStatus file, FileDescriptor fd,
       HdfsFileFormat fileFormat, Map<FsKey, FileBlocksInfo> perFsFileBlocks,
@@ -446,8 +465,15 @@ public class LoadMetadataUtil {
 
       // Remember the THdfsFileBlocks and corresponding BlockLocations. Once all the
       // blocks are collected, the disk IDs will be queried in one batch per filesystem.
-      addPerFsFileBlocks(perFsFileBlocks, fs, fd.getFileBlocks(),
-          Arrays.asList(locations));
+      FsKey fsKey = new FsKey(fs);
+      synchronized (perFsFileBlocks) {
+        FileBlocksInfo infos = perFsFileBlocks.get(fsKey);
+        if (infos == null) {
+          infos = new FileBlocksInfo();
+          perFsFileBlocks.put(fsKey, infos);
+        }
+        infos.addBlocks(fd.getFileBlocks(), Arrays.asList(locations));
+      }
     } catch (IOException e) {
       throw new RuntimeException("couldn't determine block locations for path '" +
           file.getPath() + "':\n" + e.getMessage(), e);
@@ -459,6 +485,8 @@ public class LoadMetadataUtil {
    * manually splitting the file range into fixed-size blocks. That way, scan ranges can
    * be derived from file blocks as usual. All synthesized blocks are given an invalid
    * network address so that the scheduler will treat them as remote.
+   *
+   * Must be threadsafe. Access to 'hostIndex' must be protected.
    */
   private static void synthesizeBlockMetadata(FileSystem fs, FileDescriptor fd,
       HdfsFileFormat fileFormat, ListMap<TNetworkAddress> hostIndex) {
@@ -474,27 +502,15 @@ public class LoadMetadataUtil {
     }
     while (remaining > 0) {
       long len = Math.min(remaining, blockSize);
-      List<BlockReplica> replicas = Lists.newArrayList(
-          new BlockReplica(hostIndex.getIndex(REMOTE_NETWORK_ADDRESS), false));
+      int idx = -1;
+      synchronized (hostIndex) {
+        idx = hostIndex.getIndex(REMOTE_NETWORK_ADDRESS);
+      }
+      List<BlockReplica> replicas = Lists.newArrayList(new BlockReplica(idx, false));
       fd.addFileBlock(new FileBlock(start, len, replicas));
       remaining -= len;
       start += len;
     }
-  }
-
-  /**
-   * Add the given THdfsFileBlocks and BlockLocations to the FileBlockInfo for the given
-   * filesystem.
-   */
-  private static void addPerFsFileBlocks(Map<FsKey, FileBlocksInfo> fsToBlocks,
-      FileSystem fs, List<THdfsFileBlock> blocks, List<BlockLocation> locations) {
-    FsKey fsKey = new FsKey(fs);
-    FileBlocksInfo infos = fsToBlocks.get(fsKey);
-    if (infos == null) {
-      infos = new FileBlocksInfo();
-      fsToBlocks.put(fsKey, infos);
-    }
-    infos.addBlocks(blocks, locations);
   }
 
   /**

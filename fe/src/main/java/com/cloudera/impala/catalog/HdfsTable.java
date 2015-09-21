@@ -202,7 +202,9 @@ public class HdfsTable extends Table {
   private final String loadVolumeIdsPerPartition_;
 
   // Decide if using single thread when loading metadata for partitions.
-  private static final boolean IS_SINGLE_THREAD = true;
+  private static final String ENABLE_MULTITHREADED_METADATA_LOADING_CONF =
+      "recordservice.server.enableMultithreadedMetadataLoading";
+  private final boolean enableMultithreadedMetadataLoading_;
 
   public boolean spansMultipleFileSystems() { return multipleFileSystems_; }
 
@@ -218,6 +220,11 @@ public class HdfsTable extends Table {
         "LOAD_BLOCK_LOCATION_PER_PARTITION", getFullName());
     this.loadVolumeIdsPerPartition_ = name("LOAD_VOLUME_IDS_PER_PARTITION",
         getFullName());
+
+    enableMultithreadedMetadataLoading_ = LoadMetadataUtil.getConf().getBoolean(
+        ENABLE_MULTITHREADED_METADATA_LOADING_CONF, true);
+    LOG.debug("Loading table " + name + (enableMultithreadedMetadataLoading_ ?
+        " with multiple threads." : " with single thread."));
   }
 
   @Override
@@ -459,7 +466,7 @@ public class HdfsTable extends Table {
       if (fs.exists(location)) {
         accessLevel_ = getAvailableAccessLevel(fs, location);
       }
-    } else if (IS_SINGLE_THREAD) {
+    } else if (!enableMultithreadedMetadataLoading_) {
       // Single thread case.
       blocksToLoad = loadBlockMdForPartitions(msPartitions, 0, msPartitions.size(),
           oldFileDescMap);
@@ -468,9 +475,7 @@ public class HdfsTable extends Table {
       int partitionsPerThread = msPartitions.size() / ThreadPool.THREAD_NUM_PER_REQUEST;
       // When there are fewer partitions than threads, assign 1 per thread until there are
       // no partitions left.
-      if (partitionsPerThread == 0) {
-        partitionsPerThread = 1;
-      }
+      if (partitionsPerThread == 0) partitionsPerThread = 1;
       int numUnassignedPartitions = msPartitions.size();
 
       List<Future<Map<FsKey, FileBlocksInfo>>> futureList =
@@ -682,7 +687,9 @@ public class HdfsTable extends Table {
    * Returns new partition if successful or null if none was added.
    * Separated from addPartition to reduce the number of operations done
    * while holding the lock on the hdfs table.
-
+   *
+   * Must be thread safe.
+   *
    *  @throws CatalogException
    *    if the supplied storage descriptor contains metadata that Impala can't
    *    understand.
@@ -693,7 +700,7 @@ public class HdfsTable extends Table {
       Map<FsKey, FileBlocksInfo> perFsFileBlocks)
       throws CatalogException {
     HdfsStorageDescriptor fileFormatDescriptor =
-        HdfsStorageDescriptor.fromStorageDescriptor(this.name_, storageDescriptor);
+        HdfsStorageDescriptor.fromStorageDescriptor(name_, storageDescriptor);
     Path partDirPath = new Path(storageDescriptor.getLocation());
 
     // If the partition is marked as cached, the block location metadata must be
@@ -728,8 +735,9 @@ public class HdfsTable extends Table {
     try {
       // Each partition could reside on a different filesystem.
       FileSystem fs = partDirPath.getFileSystem(LoadMetadataUtil.getConf());
-      multipleFileSystems_ = multipleFileSystems_ ||
-          !FileSystemUtil.isPathOnFileSystem(new Path(getLocation()), fs);
+      if (!FileSystemUtil.isPathOnFileSystem(new Path(getLocation()), fs)) {
+        multipleFileSystems_ = true;
+      }
       List<FileDescriptor> fileDescriptors = Lists.newArrayList();
       if (fs.exists(partDirPath)) {
         // FileSystem does not have an API that takes in a timestamp and returns a list
@@ -752,15 +760,15 @@ public class HdfsTable extends Table {
 
   /**
    * Adds the partition to the HdfsTable.
-   *
-   * Note: This method is not thread safe because it modifies the list of partitions
-   * and the HdfsTable's partition metadata.
+   * Threadsafe.
    */
-  public void addPartition(HdfsPartition partition) {
-    if (partitions_.contains(partition)) return;
-    partitions_.add(partition);
-    totalHdfsBytes_ += partition.getSize();
-    updatePartitionMdAndColStats(partition);
+  void addPartition(HdfsPartition partition) {
+    synchronized (partitions_) {
+      if (partitions_.contains(partition)) return;
+      partitions_.add(partition);
+      totalHdfsBytes_ += partition.getSize();
+      updatePartitionMdAndColStats(partition);
+    }
   }
 
   /**
@@ -869,6 +877,13 @@ public class HdfsTable extends Table {
    */
   public void load(Table cachedEntry, HiveMetaStoreClient client,
       org.apache.hadoop.hive.metastore.api.Table msTbl) throws TableLoadingException {
+    load(cachedEntry, client, msTbl, null);
+  }
+
+  @Override
+  public void load(Table cachedEntry, HiveMetaStoreClient client,
+      org.apache.hadoop.hive.metastore.api.Table msTbl, MetaStoreClientPool pool)
+      throws TableLoadingException {
     // Start timer for loadTblMetadata.
     final Timer.Context loadTblMetadataTimer = Metrics.INSTANCE
         .getTimerCtx(loadTblMetadataTimerName_);
@@ -917,9 +932,14 @@ public class HdfsTable extends Table {
       // Collect the list of partitions according to partition names.
       // No need to make the metastore call if no partitions are to be updated.
       if (!partNames.isEmpty()) {
-        msPartitions.addAll(MetaStoreUtil.fetchPartitionsByName(
-            client, Lists.newArrayList(partNames), db_.getName(), name_,
-            NUM_PARTITION_FETCH_RETRIES));
+        if (enableMultithreadedMetadataLoading_) {
+          msPartitions.addAll(MetaStoreUtil.fetchPartitionsByName(
+              pool, Lists.newArrayList(partNames), db_.getName(), name_));
+        } else {
+          msPartitions.addAll(MetaStoreUtil.fetchPartitionsByName(
+              client, Lists.newArrayList(partNames), db_.getName(), name_,
+              NUM_PARTITION_FETCH_RETRIES));
+        }
       }
 
       Map<String, List<FileDescriptor>> oldFileDescMap = null;

@@ -112,6 +112,16 @@ public abstract class Table implements CatalogObject {
   public abstract void load(Table oldValue, HiveMetaStoreClient client,
       org.apache.hadoop.hive.metastore.api.Table msTbl) throws TableLoadingException;
 
+  /**
+   * Identical to load(), except with access to the MetaStoreClient pool.
+   * Single threaded implementations (default) can use client.
+   */
+  public void load(Table oldValue, HiveMetaStoreClient client,
+      org.apache.hadoop.hive.metastore.api.Table msTbl, MetaStoreClientPool pool)
+      throws TableLoadingException {
+    load(oldValue, client, msTbl);
+  }
+
   public void addColumn(Column col) {
     colsByPos_.add(col);
     colsByName_.put(col.getName().toLowerCase(), col);

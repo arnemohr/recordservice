@@ -81,7 +81,8 @@ public class TableLoader {
         throw new TableLoadingException(
             "Unrecognized table type for table: " + fullTblName);
       }
-      table.load(cachedValue, msClient.getHiveClient(), msTbl);
+      table.load(cachedValue, msClient.getHiveClient(), msTbl,
+          catalog_.metaStoreClientPool_);
       table.validate();
     } catch (TableLoadingException e) {
       table = IncompleteTable.createFailedMetadataLoadTable(
