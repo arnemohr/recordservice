@@ -150,7 +150,7 @@
     {
       "name" : "advanced_config",
       "label" : "Advanced Configuration",
-      "description" : "Any configs added here will be overriden by their default values. This should be specified as --<key>=<value>, separated by spaces.",
+      "description" : "Any configs added here will be overridden by their default values. This should be specified as --{key}={value}, separated by spaces.",
       "type" : "string",
       "default" : ""
     },
