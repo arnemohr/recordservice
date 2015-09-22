@@ -1075,8 +1075,9 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
 
     for (int i = 0; i < combined_tasks.size(); ++i) {
       recordservice::TTask task;
-      task.results_ordered = true;
       task.task_size = combined_tasks[i].ranges.size();
+      // Only scans of a single range can be ordered
+      task.results_ordered = (task.task_size == 1);
 
       // Generate the task id from the request id. Just increment the lo field. It
       // doesn't matter if this overflows. Return the task ID to the RecordService
@@ -1142,7 +1143,8 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
         local_hosts.swap(scan_range.locations);
         scan_range.locations.clear();
         for (int k = 0; k < local_hosts.size(); ++k) {
-          if (global_to_local_hosts.find(local_hosts[k].host_idx) == global_to_local_hosts.end()) {
+          if (global_to_local_hosts.find(local_hosts[k].host_idx) ==
+              global_to_local_hosts.end()) {
             // After combining, this replica is no longer considered local.
             continue;
           }
