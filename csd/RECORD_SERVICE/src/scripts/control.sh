@@ -39,6 +39,12 @@ add_to_hdfs_site() {
 RECORD_SERVICE_BIN_HOME=$RECORDSERVICE_HOME/../../bin
 log "RECORD_SERVICE_BIN_HOME: $RECORD_SERVICE_BIN_HOME"
 
+if [ "$DEBUG" == "true" ]; then
+  log "running debug binaries"
+  export RECORDSERVICE_BIN=${RECORDSERVICE_BIN:-$RECORDSERVICE_HOME/sbin-debug}
+fi
+log "RECORDSERVICE_BIN: $RECORDSERVICE_BIN"
+
 log "CMD: $CMD"
 
 export HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
