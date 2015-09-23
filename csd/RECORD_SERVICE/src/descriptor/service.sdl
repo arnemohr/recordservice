@@ -16,7 +16,7 @@
 {
   "name" : "RECORD_SERVICE",
   "label" : "RecordService (Beta)",
-  "description" : "The RecordService",
+  "description" : "RecordService is a secure data access service for reading structured data.",
   "version" : "0.1.0",
   "compatibility" : {
     "cdhVersion" : {
@@ -157,7 +157,7 @@
     {
       "name" : "debug",
       "label" : "Run Debug Binaries",
-      "description" : "If true, running debug binaries.",
+      "description" : "If true, run debug binaries.",
       "type" : "boolean",
       "required" : "true",
       "default" : "false"
