@@ -235,7 +235,8 @@ Status HdfsScanNode::GetNextInternal(
 DiskIoMgr::ScanRange* HdfsScanNode::AllocateScanRange(
     hdfsFS fs, const char* file, int64_t len, int64_t offset, int64_t partition_id,
     int disk_id, bool try_cache, bool expected_local, int64_t mtime,
-    int initial_capacity, int min_buffer_size, int max_buffer_size) {
+    int initial_capacity, int min_buffer_size, int max_buffer_size,
+    const DiskIoMgr::ScanRange* original_split) {
   DCHECK_GE(disk_id, -1);
   // Require that the scan range is within [0, file_length). While this cannot be used
   // to guarantee safety (file_length metadata may be stale), it avoids different
@@ -247,8 +248,8 @@ DiskIoMgr::ScanRange* HdfsScanNode::AllocateScanRange(
       << "Scan range beyond end of file (offset=" << offset << ", len=" << len << ")";
   disk_id = runtime_state_->io_mgr()->AssignQueue(file, disk_id, expected_local);
 
-  ScanRangeMetadata* metadata =
-      runtime_state_->obj_pool()->Add(new ScanRangeMetadata(partition_id));
+  ScanRangeMetadata* metadata = runtime_state_->obj_pool()->Add(
+        new ScanRangeMetadata(partition_id, original_split));
   DiskIoMgr::ScanRange* range =
       runtime_state_->obj_pool()->Add(new DiskIoMgr::ScanRange(
           initial_capacity, min_buffer_size, max_buffer_size));

@@ -320,7 +320,7 @@ class DiskIoMgr {
     /// Length of data read or written.
     int64_t len_;
 
-    /// Id of disk containing file_;
+    /// Id of disk containing byte range.
     int disk_id_;
 
     /// The type of IO request, READ or WRITE.
