@@ -52,6 +52,14 @@
     {
       "name" : "HBASE",
       "required" : "false"
+    },
+    {
+      "name" : "YARN",
+      "required" : "false"
+    },
+    {
+      "name" : "MAPREDUCE",
+      "required" : "false"
     }
   ],
   "parameters" : [
@@ -170,7 +178,10 @@
       "pluralLabel" : "RecordService planner and worker",
       "logging" : {
         "dir" : "/var/log/recordserviced",
-        "filename" : "recordserviced.INFO"
+        "filename" : "recordserviced.INFO",
+        /* This should be glog, but only CM5.4.3+ support it */
+        "loggingType" : "other",
+        "modifiable" : true
       },
       "externalLink" : {
         "name" : "service_web_ui",
@@ -222,7 +233,10 @@
       "pluralLabel" : "RecordService Planners",
       "logging" : {
         "dir" : "/var/log/recordserviced",
-        "filename" : "recordserviced.INFO"
+        "filename" : "recordserviced.INFO",
+        /* This should be glog, but only CM5.4.3+ support it */
+        "loggingType" : "other",
+        "modifiable" : true
       },
       "externalLink" : {
         "name" : "service_web_ui",
@@ -273,7 +287,10 @@
       "pluralLabel" : "RecordService Workers",
       "logging" : {
         "dir" : "/var/log/recordserviced",
-        "filename" : "recordserviced.INFO"
+        "filename" : "recordserviced.INFO",
+        /* This should be glog, but only CM5.4.3+ support it */
+        "loggingType" : "other",
+        "modifiable" : true
       },
       "externalLink" : {
         "name" : "service_web_ui",
@@ -325,8 +342,7 @@
   "externalKerberosPrincipals" : [
     {
       "name" : "external_kerberos_principal",
-      "primary" : "${principal}",
-      "instance" : "${host}"
+      "primary" : "${principal}"
     }
   ],
   "gateway" : {
@@ -387,7 +403,8 @@
             {
               "principalName" : "external_kerberos_principal",
               "propertyName" : "recordservice.kerberos.principal",
-              "external" : "true"
+              "external" : "true",
+              "instanceWildcard" : "_HOST"
             }
           ]
         }

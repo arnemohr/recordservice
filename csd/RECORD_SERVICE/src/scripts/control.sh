@@ -25,7 +25,7 @@ function log {
 
 # Adds a xml config to hdfs-site.xml
 add_to_hdfs_site() {
-  FILE=`find $CONF_DIR/hadoop-conf -name hdfs-site.xml`
+  FILE=`find $HADOOP_CONF_DIR -name hdfs-site.xml`
   CONF_END="</configuration>"
   NEW_PROPERTY="<property><name>$1</name><value>$2</value></property>"
   TMP_FILE=$CONF_DIR/tmp-hdfs-site
@@ -47,8 +47,23 @@ log "RECORDSERVICE_BIN: $RECORDSERVICE_BIN"
 
 log "CMD: $CMD"
 
-export HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
+
 export HIVE_CONF_DIR=$CONF_DIR/hive-conf
+# Use yarn-conf as HADOOP_CONF_DIR
+# Use mapreduce-conf if yarn-conf is not there
+# Use hadoop-conf if neither yarn-conf nor mapreduce-conf is there
+export HADOOP_CONF_DIR=$CONF_DIR/yarn-conf
+if [ ! -d "$HADOOP_CONF_DIR" ]; then
+  HADOOP_CONF_DIR=$CONF_DIR/mapreduce-conf
+  if [ ! -d "$HADOOP_CONF_DIR" ]; then
+    HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
+    if [ ! -d "$HADOOP_CONF_DIR" ]; then
+      log "No Hadoop configuration found."
+      exit 1
+    fi
+  fi
+fi
+
 export USER=recordservice
 
 env
