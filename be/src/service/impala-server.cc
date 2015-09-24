@@ -2016,7 +2016,7 @@ Status CreateServer(ExecEnv* exec_env, const shared_ptr<ImpalaServer>& handler,
     RETURN_IF_ERROR((*server)->EnableSsl(
             FLAGS_ssl_server_certificate, FLAGS_ssl_private_key));
   }
-  LOG(ERROR) << service_name << " server listening on port " << port;
+  LOG(INFO) << service_name << " server listening on port " << port;
   return Status::OK();
 }
 
