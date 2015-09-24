@@ -40,6 +40,7 @@ void RegisterMinidump(const char* path) {
   static bool registered = false;
   assert(!registered);
   registered = true;
+  LOG(INFO) << "Registering minidump handler. Minidump directory: " << path;
 
   // Create the directory if it is not there. The minidump doesn't get written
   // if there is no directory.

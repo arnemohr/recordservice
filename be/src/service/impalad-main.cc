@@ -61,8 +61,8 @@ DEFINE_string(minidump_path, "/tmp/minidumps",
     "Directory to output minidumps on crash. If empty, minidumps is disabled.");
 
 int main(int argc, char** argv) {
-  if (FLAGS_minidump_path.size() > 0) RegisterMinidump(FLAGS_minidump_path.c_str());
   InitCommonRuntime(argc, argv, true);
+  if (FLAGS_minidump_path.size() > 0) RegisterMinidump(FLAGS_minidump_path.c_str());
 
   LlvmCodeGen::InitializeLlvm();
   JniUtil::InitLibhdfs();
