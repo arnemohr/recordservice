@@ -89,7 +89,7 @@ public class RecordServiceCatalog extends CatalogServiceCatalog{
 
     // Create incompleteTable.
     table = IncompleteTable.createUninitializedTable(TableId.createInvalidId(),
-        new Db(dbName, this), tableName);
+        new Db(dbName, this, null), tableName);
 
     // Load table via load mgr.
     TableLoadingMgr.LoadRequest loadReq = tableLoadingMgr_.load(new TTableName(
@@ -155,7 +155,7 @@ public class RecordServiceCatalog extends CatalogServiceCatalog{
           .getDatabases(dbName.toLowerCase());
       for (String db : listOfDb) {
         if (db.equals(dbName)) {
-          return new Db(dbName, this);
+          return new Db(dbName, this, null);
         }
       }
     } catch (MetaException e) {
