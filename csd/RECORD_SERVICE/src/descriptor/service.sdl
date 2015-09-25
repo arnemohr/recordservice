@@ -85,7 +85,7 @@
       "description" : "The port for the server debug webpage.",
       "required" : "true",
       "type" : "port",
-      "default" : 28000
+      "default" : 11050
     },
     {
       "name" : "log_filename",

@@ -30,7 +30,7 @@ from thrift.protocol import TBinaryProtocol
 
 parser = OptionParser()
 parser.add_option("--hs2_hostport", dest="hs2_hostport",
-                  default="localhost:11050", help="HiveServer2 hostport to wait for.")
+                  default="localhost:10050", help="HiveServer2 hostport to wait for.")
 parser.add_option("--transport", dest="transport", default="buffered",
                   help="Transport to use for connecting to HiveServer2. Valid values: "
                   "'buffered', 'kerberos', 'plain_sasl'.")

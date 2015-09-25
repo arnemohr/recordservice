@@ -37,7 +37,7 @@ parser.add_option("-f", "--force_reload", dest="force_reload", action="store_tru
 parser.add_option("--impalad", dest="impalad", default="localhost:21000",
                   help="Impala daemon to connect to")
 parser.add_option("--hive_hs2_hostport", dest="hive_hs2_hostport",
-                  default="localhost:11050",
+                  default="localhost:10050",
                   help="HS2 host:Port to issue Hive queries against using beeline")
 parser.add_option("--table_names", dest="table_names", default=None,
                   help="Only load the specified tables - specified as a comma-seperated "\

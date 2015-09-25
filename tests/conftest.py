@@ -35,7 +35,7 @@ def pytest_addoption(parser):
   parser.addoption("--metastore_server", default="localhost:9083", help=\
                    "The Hive Metastore server host:port to connect to.")
 
-  parser.addoption("--hive_server2", default="localhost:11050", help=\
+  parser.addoption("--hive_server2", default="localhost:10050", help=\
                    "Hive's HiveServer2 host:port to connect to.")
 
   default_xml_path = os.path.join(os.environ['HADOOP_CONF_DIR'], "hdfs-site.xml")
