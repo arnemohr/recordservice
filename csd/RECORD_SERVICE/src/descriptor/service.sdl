@@ -69,7 +69,7 @@
       "description" : "The port the RecordService Planner will be set to run on. Clients need to connect on this port.",
       "required" : "true",
       "type" : "port",
-      "default" : 40000
+      "default" : 12050
     },
     {
       "name" : "recordservice_worker_port",
@@ -77,7 +77,7 @@
       "description" : "The port the RecordService Worker will be set to run on.",
       "required" : "true",
       "type" : "port",
-      "default" : 40100
+      "default" : 13050
     },
     {
       "name" : "webserver_port",
@@ -85,7 +85,7 @@
       "description" : "The port for the server debug webpage.",
       "required" : "true",
       "type" : "port",
-      "default" : 35000
+      "default" : 28000
     },
     {
       "name" : "log_filename",

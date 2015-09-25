@@ -187,8 +187,8 @@ def build_impalad_port_args(instance_num):
   BASE_STATE_STORE_SUBSCRIBER_PORT = 23000
   BASE_WEBSERVER_PORT = 25000
   BASE_LLAMA_CALLBACK_PORT = 28000
-  BASE_RS_PLANNER_PORT = 40000
-  BASE_RS_WORKER_PORT = 40100
+  BASE_RS_PLANNER_PORT = 12050
+  BASE_RS_WORKER_PORT = 13050
 
   rs_planner_port = BASE_RS_PLANNER_PORT + instance_num
   if instance_num >= options.num_planner_servers:

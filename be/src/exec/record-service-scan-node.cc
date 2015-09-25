@@ -37,9 +37,9 @@ using namespace strings;
 
 DEFINE_string(recordservice_planner_client_host, "localhost",
     "Host of running RecordService planner.");
-DEFINE_int32(recordservice_planner_client_port, 40000,
+DEFINE_int32(recordservice_planner_client_port, 12050,
     "Port of running RecordService planner.");
-DEFINE_int32(recordservice_worker_client_port, 40100,
+DEFINE_int32(recordservice_worker_client_port, 13050,
     "Port of running RecordService worker");
 
 namespace impala {

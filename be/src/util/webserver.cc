@@ -60,7 +60,7 @@ using namespace mustache;
 const char* GetDefaultDocumentRoot();
 
 DEFINE_int32(webserver_port, 25000, "Port to start debug webserver on");
-DEFINE_int32(recordservice_webserver_port, 35000,
+DEFINE_int32(recordservice_webserver_port, 28000,
     "Port to start RecordService debug webserver on");
 DEFINE_int32(webserver_max_post_length_bytes, 1024 * 1024,
     "The maximum length of a POST request that will be accepted by "

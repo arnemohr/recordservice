@@ -169,8 +169,8 @@ DEFINE_string(local_nodemanager_url, "", "The URL of the local Yarn Node Manager
 DECLARE_bool(enable_rm);
 DECLARE_bool(compact_catalog_topic);
 
-DEFINE_int32(recordservice_planner_port, 40000, "Port to run RecordService planner");
-DEFINE_int32(recordservice_worker_port, 40100, "Port to run RecordService worker");
+DEFINE_int32(recordservice_planner_port, 12050, "Port to run RecordService planner");
+DEFINE_int32(recordservice_worker_port, 13050, "Port to run RecordService worker");
 
 namespace impala {
 
