@@ -637,7 +637,7 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
 
       string tmp_table;
       THdfsFileFormat::type format;
-      Status status = CreateTmpTable(req.path, &tmp_table, path_filter, &format);
+      Status status = CreateTmpTable(req, &tmp_table, path_filter, &format);
       if (!status.ok()) {
         ThrowRecordServiceException(recordservice::TErrorCode::INVALID_REQUEST,
             "Could not create temporary table.",
@@ -1568,11 +1568,13 @@ void ImpalaServer::GetTaskStatus(recordservice::TTaskStatus& return_val,
   }
 }
 
-Status ImpalaServer::CreateTmpTable(const recordservice::TPathRequest& request,
+Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req,
     string* table_name, scoped_ptr<re2::RE2>* path_filter,
     THdfsFileFormat::type* format) {
   hdfsFS fs;
   Status status = HdfsFsCache::instance()->GetDefaultConnection(&fs);
+  DCHECK_EQ(req.request_type, recordservice::TRequestType::Path);
+  const recordservice::TPathRequest& request = req.path;
   if (!status.ok()) {
     // TODO: more error detail
     ThrowRecordServiceException(recordservice::TErrorCode::INTERNAL_ERROR,
@@ -1615,6 +1617,27 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPathRequest& request,
     // Move the suffix and file filtering logic there.
     ThrowRecordServiceException(
         recordservice::TErrorCode::INVALID_REQUEST, ss.str());
+  }
+
+  // Check if the user has privilege to the path
+  const ThriftServer::Username& username =
+      ThriftServer::GetThreadConnectionContext()->username;
+  TAuthorizePathRequest auth_path_request;
+  TAuthorizePathResponse auth_path_response;
+  if (username.empty()) {
+    auth_path_request.username = req.user;
+  } else {
+    auth_path_request.username = username;
+  }
+  auth_path_request.path = path;
+  RETURN_IF_ERROR(
+      exec_env_->frontend()->AuthorizePath(auth_path_request, &auth_path_response));
+  if (!auth_path_response.success) {
+    stringstream ss;
+    ss << "User " << auth_path_request.username << " does not have full access "
+       << "to the path " << auth_path_request.path;
+    ThrowRecordServiceException(
+        recordservice::TErrorCode::AUTHENTICATION_ERROR, ss.str());
   }
 
   if (!suffix.empty()) path_filter->reset(new re2::RE2(FilePatternToRegex(suffix)));
@@ -1697,17 +1720,29 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPathRequest& request,
 
   ScopedSessionState session_handle(this);
   GetRecordServiceSession(&session_handle);
+  shared_ptr<SessionState> session_state = session_handle.get();
+
+  // We need to enforce restrictions on accesses to the temp table
+  // but cannot give users access to it because the temp table is shared,
+  // and one user may not be allowed to access the content of the table
+  // created by another user.
+  // Here we require that the user running the current process has full access to
+  // the temp db and table, and all operations on the them should be done by
+  // this user.
+  // FIXME: this is a hack! think a better way to solve this issue.
+  session_state->connected_user = getenv("USER");
 
   int num_commands = sizeof(commands) / sizeof(commands[0]);
   for (int i = 0; i < num_commands; ++i) {
     TQueryCtx query_ctx;
     query_ctx.request.stmt = commands[i];
+    query_ctx.session.connected_user = session_state->connected_user;
 
     shared_ptr<QueryExecState> exec_state;
-    RETURN_IF_ERROR(Execute(&query_ctx, session_handle.get(), &exec_state));
+    RETURN_IF_ERROR(Execute(&query_ctx, session_state, &exec_state));
     exec_state->UpdateQueryState(QueryState::RUNNING);
 
-    Status status = SetQueryInflight(session_handle.get(), exec_state);
+    Status status = SetQueryInflight(session_state, exec_state);
     if (!status.ok()) {
       UnregisterQuery(exec_state->query_id(), false, &status);
       return status;

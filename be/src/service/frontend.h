@@ -188,6 +188,10 @@ class Frontend {
   Status GetMasterKey(const TGetMasterKeyRequest& params,
       TGetMasterKeyResponse* result);
 
+  // Check whether 'username' has full privilege to the 'path'.
+  Status AuthorizePath(const TAuthorizePathRequest& params,
+      TAuthorizePathResponse* result);
+
  private:
   /// Descriptor of Java Frontend class itself, used to create a new instance.
   jclass fe_class_;
@@ -220,6 +224,7 @@ class Frontend {
   jmethodID renew_delegation_token_id_; // JniFrontend.renewDelegationToken
   jmethodID retrieve_user_and_password_id_; // JniFrontend.retrieveUserAndPassword
   jmethodID get_master_key_id_; // JniFrontend.getMasterKey
+  jmethodID auth_path_id_; // JniFrontend.authorizePath
   jmethodID init_zookeeper_id_;  // JniFrontend.initZooKeeper
   jmethodID fe_ctor_;
 };

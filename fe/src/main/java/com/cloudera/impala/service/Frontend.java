@@ -63,6 +63,7 @@ import com.cloudera.impala.analysis.TruncateStmt;
 import com.cloudera.impala.analysis.TupleDescriptor;
 import com.cloudera.impala.authorization.AuthorizationChecker;
 import com.cloudera.impala.authorization.AuthorizationConfig;
+import com.cloudera.impala.authorization.AuthorizeableUri;
 import com.cloudera.impala.authorization.ImpalaInternalAdminUser;
 import com.cloudera.impala.authorization.Privilege;
 import com.cloudera.impala.authorization.PrivilegeRequest;
@@ -796,6 +797,16 @@ public class Frontend {
       // that has been thrown, so perform the authorization first.
       analysisCtx.getAnalyzer().authorize(getAuthzChecker());
     }
+  }
+
+  /**
+   * Check if 'username' has FULL privilege to 'pathName'
+   */
+  public boolean authorizePath(String userName, String pathName) {
+    Path path = FileSystemUtil.createFullyQualifiedPath(new Path(pathName));
+    PrivilegeRequest request = new PrivilegeRequest(
+        new AuthorizeableUri(path.toString()), Privilege.ALL);
+    return getAuthzChecker().hasAccess(new User(userName), request);
   }
 
   /**

@@ -94,6 +94,7 @@ Frontend::Frontend(bool running_planner, bool running_worker) {
     {"renewDelegationToken", "([B)V", &renew_delegation_token_id_},
     {"retrieveUserAndPassword", "([B)[B", &retrieve_user_and_password_id_},
     {"getMasterKey", "([B)[B", &get_master_key_id_},
+    {"authorizePath", "([B)[B", &auth_path_id_}
   };
 
   JNIEnv* jni_env = getJNIEnv();
@@ -296,6 +297,11 @@ Status Frontend::RetrieveUserAndPassword(const TRetrieveUserAndPasswordRequest& 
 Status Frontend::GetMasterKey(const TGetMasterKeyRequest& params,
     TGetMasterKeyResponse* result) {
   return JniUtil::CallJniMethod(fe_, get_master_key_id_, params, result);
+}
+
+Status Frontend::AuthorizePath(const TAuthorizePathRequest& params,
+    TAuthorizePathResponse* result) {
+  return JniUtil::CallJniMethod(fe_, auth_path_id_, params, result);
 }
 
 bool Frontend::IsAuthorizationError(const Status& status) {

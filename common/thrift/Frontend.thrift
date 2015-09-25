@@ -803,3 +803,12 @@ struct TGetMasterKeyResponse {
   1: required i32 seq
   2: required string key
 }
+
+struct TAuthorizePathRequest {
+  1: required string username
+  2: required string path
+}
+
+struct TAuthorizePathResponse {
+  1: required bool success
+}

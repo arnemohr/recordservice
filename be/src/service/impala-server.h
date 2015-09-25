@@ -838,7 +838,7 @@ class ImpalaServer : public ImpalaServiceIf, public ImpalaHiveServer2ServiceIf,
   /// If the 'path' was not a directory (e.g. /path/file or /path/*.avro), then
   /// *suffix will be the part after the last '/' (e.g. "file", "*.avro")
   /// If path is a directory, *suffix will be empty.
-  Status CreateTmpTable(const recordservice::TPathRequest& path,
+  Status CreateTmpTable(const recordservice::TPlanRequestParams& req,
       std::string* table_name, boost::scoped_ptr<re2::RE2>* path_filter,
       THdfsFileFormat::type* file_format);
 

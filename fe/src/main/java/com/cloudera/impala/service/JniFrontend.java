@@ -66,6 +66,8 @@ import com.cloudera.impala.common.InternalException;
 import com.cloudera.impala.common.JniUtil;
 import com.cloudera.impala.security.AuthenticationException;
 import com.cloudera.impala.security.DelegationTokenManager;
+import com.cloudera.impala.thrift.TAuthorizePathRequest;
+import com.cloudera.impala.thrift.TAuthorizePathResponse;
 import com.cloudera.impala.thrift.TCancelDelegationTokenRequest;
 import com.cloudera.impala.thrift.TCatalogObject;
 import com.cloudera.impala.thrift.TDescribeTableParams;
@@ -277,6 +279,19 @@ public class JniFrontend {
     TUpdateMembershipRequest req = new TUpdateMembershipRequest();
     JniUtil.deserializeThrift(protocolFactory_, req, thriftMembershipUpdate);
     frontend_.updateMembership(req);
+  }
+
+  public byte[] authorizePath(byte[] thriftAuthorizePathParams) throws ImpalaException {
+    TAuthorizePathRequest req = new TAuthorizePathRequest();
+    JniUtil.deserializeThrift(protocolFactory_, req, thriftAuthorizePathParams);
+    TAuthorizePathResponse response = new TAuthorizePathResponse();
+    response.success = frontend_.authorizePath(req.username, req.path);
+    TSerializer serializer = new TSerializer(protocolFactory_);
+    try {
+      return serializer.serialize(response);
+    } catch (TException e) {
+      throw new InternalException(e.getMessage());
+    }
   }
 
   /**
