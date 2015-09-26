@@ -50,17 +50,13 @@ log "CMD: $CMD"
 
 export HIVE_CONF_DIR=$CONF_DIR/hive-conf
 # Use yarn-conf as HADOOP_CONF_DIR
-# Use mapreduce-conf if yarn-conf is not there
-# Use hadoop-conf if neither yarn-conf nor mapreduce-conf is there
+# Use hadoop-conf if yarn-conf is not there
 export HADOOP_CONF_DIR=$CONF_DIR/yarn-conf
 if [ ! -d "$HADOOP_CONF_DIR" ]; then
-  HADOOP_CONF_DIR=$CONF_DIR/mapreduce-conf
+  HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
   if [ ! -d "$HADOOP_CONF_DIR" ]; then
-    HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
-    if [ ! -d "$HADOOP_CONF_DIR" ]; then
-      log "No Hadoop configuration found."
-      exit 1
-    fi
+    log "No Hadoop configuration found."
+    exit 1
   fi
 fi
 

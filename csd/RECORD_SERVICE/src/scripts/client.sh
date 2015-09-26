@@ -23,6 +23,11 @@ function log {
   echo "$timestamp: $1"
 }
 
+# Replaces all occurrences of $1 with $2 in file $3, escaping $1 and $2 as necessary.
+function sed_replace {
+  sed -i "s/$(echo $1 | sed -e 's/\([[\/.*]\|\]\)/\\&/g')/$(echo $2 | sed -e 's/[\/&]/\\&/g')/g" $3
+}
+
 log "CMD: $CMD"
 log "PLANNER_CONF_FILE: $PLANNER_CONF_FILE"
 log "RECORDSERVICE_CONF_FILE: $RECORDSERVICE_CONF_FILE"
@@ -37,19 +42,14 @@ log "PW_FILE: $PW_FILE"
 # we should also copy YARN / MAPREDUCE conf into $HADOOP_CONF_DIR.
 YARN_CONF_DIR="${CONF_DIR}/yarn-conf"
 HADOOP_CONF_DIR="${CONF_DIR}/hadoop-conf"
-MR_CONF_DIR="${CONF_DIR}/mapreduce-conf"
 log "YARN_CONF_DIR: $YARN_CONF_DIR"
 log "HADOOP_CONF_DIR: $HADOOP_CONF_DIR"
-log "MR_CONF_DIR: $MR_CONF_DIR"
 
 # Copy yarn-conf under HADOOP config.
 # Copy mapreduce-conf under HADOOP config, if yarn-conf is not there.
 if [ -d "$YARN_CONF_DIR" ]; then
   log "Copy $YARN_CONF_DIR to $HADOOP_CONF_DIR"
   cp $YARN_CONF_DIR/* $HADOOP_CONF_DIR
-elif [ -d "$MR_CONF_DIR" ]; then
-  log "Copy $MR_CONF_DIR to $HADOOP_CONF_DIR"
-  cp $MR_CONF_DIR/* $HADOOP_CONF_DIR
 fi
 
 # Because of OPSAPS-25695, we need to fix HADOOP config ourselves.
@@ -57,9 +57,9 @@ log "CDH_MR2_HOME: $CDH_MR2_HOME"
 log "HADOOP_CLASSPATH: $HADOOP_CLASSPATH"
 for i in "$HADOOP_CONF_DIR"/*; do
   log "i: $i"
-  replace "{{CDH_MR2_HOME}}" "$CDH_MR2_HOME" -- "$i"
-  replace "{{HADOOP_CLASSPATH}}" "$HADOOP_CLASSPATH" -- "$i"
-  replace "{{JAVA_LIBRARY_PATH}}" "" -- "$i"
+  sed_replace "{{CDH_MR2_HOME}}" "$CDH_MR2_HOME" "$i"
+  sed_replace "{{HADOOP_CLASSPATH}}" "$HADOOP_CLASSPATH" "$i"
+  sed_replace "{{JAVA_LIBRARY_PATH}}" "" "$i"
 done
 
 # Adds a xml config to $RECORDSERVICE_CONF_FILE

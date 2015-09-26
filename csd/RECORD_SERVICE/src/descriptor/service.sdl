@@ -56,10 +56,6 @@
     {
       "name" : "YARN",
       "required" : "false"
-    },
-    {
-      "name" : "MAPREDUCE",
-      "required" : "false"
     }
   ],
   "parameters" : [
