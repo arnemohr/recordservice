@@ -623,6 +623,26 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
         req.options.abort_on_corrupt_record);
   }
 
+  // Populate session information. This includes, among other things, the user
+  // information.
+  shared_ptr<SessionState> session;
+  const TUniqueId& session_id = ThriftServer::GetThreadConnectionId();
+  Status status = GetSessionState(session_id, &session);
+  if (!status.ok()) {
+    ThrowRecordServiceException(recordservice::TErrorCode::INTERNAL_ERROR,
+        "Could not get session.", status.msg().GetFullMessageDetails());
+  }
+  DCHECK(session != NULL);
+  // Set the user name. If it was set by a lower-level transport (i.e authenticated
+  // user), use that. Otherwise, use the value in the request.
+  const ThriftServer::Username& username =
+      ThriftServer::GetThreadConnectionContext()->username;
+  if (username.empty()) {
+    session->connected_user = req.user;
+  } else {
+    session->connected_user = username;
+  }
+
   unique_lock<mutex> tmp_tbl_lock;
 
   switch (req.request_type) {
@@ -669,25 +689,6 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
   record->stmt = query_ctx.request.stmt;
   VLOG_REQUEST << "RecordService::PlanRequest: " << query_ctx.request.stmt;
 
-  // Populate session information. This includes, among other things, the user
-  // information.
-  shared_ptr<SessionState> session;
-  const TUniqueId& session_id = ThriftServer::GetThreadConnectionId();
-  Status status = GetSessionState(session_id, &session);
-  if (!status.ok()) {
-    ThrowRecordServiceException(recordservice::TErrorCode::INTERNAL_ERROR,
-        "Could not get session.", status.msg().GetFullMessageDetails());
-  }
-  DCHECK(session != NULL);
-  // Set the user name. If it was set by a lower-level transport (i.e authenticated
-  // user), use that. Otherwise, use the value in the request.
-  const ThriftServer::Username& username =
-      ThriftServer::GetThreadConnectionContext()->username;
-  if (username.empty()) {
-    session->connected_user = req.user;
-  } else {
-    session->connected_user = username;
-  }
   session->ToThrift(session_id, &query_ctx.session);
   record->effective_user = session->connected_user;
 
