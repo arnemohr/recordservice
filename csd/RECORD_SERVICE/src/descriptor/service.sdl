@@ -33,7 +33,7 @@
   "icon" : "images/icon.png",
   "parcel" : {
     /* Automatically add the recordservice parcel repository */
-    "repoUrl" : "http://repos.jenkins.cloudera.com/recordservice-nightly/parcels/latest/",
+    "repoUrl" : "http://archive.cloudera.com/beta/recordservice/parcels/latest/",
     "requiredTags" : ["recordservice", "cdh"]
   },
   "serviceDependencies" : [
