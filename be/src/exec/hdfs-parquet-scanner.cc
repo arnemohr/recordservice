@@ -468,6 +468,7 @@ class HdfsParquetScanner::BaseScalarColumnReader :
       RETURN_IF_ERROR(Codec::CreateDecompressor(
           NULL, false, PARQUET_TO_IMPALA_CODEC[metadata_->codec], &decompressor_));
     }
+    ClearDictionaryDecoder();
     return Status::OK();
   }
 
@@ -574,6 +575,10 @@ class HdfsParquetScanner::BaseScalarColumnReader :
   /// implement this.
   virtual bool HasDictionaryDecoder() = 0;
 
+  /// Clear the dictionary decoder so HasDictionaryDecoder() will return false. Subclass
+  /// must implement this.
+  virtual void ClearDictionaryDecoder() = 0;
+
   /// Initializes the reader with the data contents. This is the content for the entire
   /// decompressed data page. Decoders can initialize state from here.
   virtual Status InitDataPage(uint8_t* data, int size) = 0;
@@ -673,6 +678,10 @@ class HdfsParquetScanner::ScalarColumnReader :
 
   virtual bool HasDictionaryDecoder() {
     return dict_decoder_init_;
+  }
+
+  virtual void ClearDictionaryDecoder() {
+    dict_decoder_init_ = false;
   }
 
   virtual Status InitDataPage(uint8_t* data, int size) {
@@ -855,6 +864,8 @@ class HdfsParquetScanner::BoolColumnReader :
     // Decoder should never be created for bools.
     return false;
   }
+
+  virtual void ClearDictionaryDecoder() { }
 
   virtual Status InitDataPage(uint8_t* data, int size) {
     // Initialize bool decoder
