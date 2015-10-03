@@ -273,7 +273,8 @@ void RecordServiceScanNode::ScannerThread(int task_id) {
 
   // ExprContexts are not thread safe, so make contexts for each thread.
   vector<ExprContext*> per_thread_conjunct_ctxs;
-  Status status = Expr::Clone(conjunct_ctxs_, state_, &per_thread_conjunct_ctxs);
+  Status status = Expr::CloneIfNotExists(conjunct_ctxs_, state_,
+      &per_thread_conjunct_ctxs);
 
   // Connect to the local RecordService worker. Thrift clients are not thread safe.
   // TODO: pool these.
