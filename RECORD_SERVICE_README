@@ -16,12 +16,6 @@ Add option in generate_metrics.py to output CM mdl
 Lower-case units in generated metrics mdl file
 322b336485df0f48155bdbf5cfc68c01fabce295
 
-Change start-impala-cluster.py to append daemon args
-85f1aa2d8c471c3507033d2be9e95cfc8837ef72
-
-Remove debug logging in start-impala-cluster.py
-63f543440e58ec7bea289866104b286eb2084b1b
-
 Python Virtual Env
 d8de07c01e39b2aae4cdbe81b40a9ed1fcf5dc36 
 
@@ -33,6 +27,8 @@ Python Virtual Env
 
 Fix avro schema handling in FE (too many conflicts)
 af46f26e130f4bb73214d1b40d5779c661535fec
+IMPALA-2042: Added validation for avro.schema.literal/url.
+7d2056814aff9eebfbfca8a8e4048646ab3f9972
 
 IMPALA-2251: disallow clashing text delimiters
 cc7246b0ef2a760fffef1a1c378d350d6d37b5e3
