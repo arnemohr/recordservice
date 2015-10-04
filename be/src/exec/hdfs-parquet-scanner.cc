@@ -1815,78 +1815,74 @@ Status HdfsParquetScanner::InitColumns(
         FLAGS_read_size / static_cast<int>(column_readers_.size()),
         MAX_SCAN_RANGE_BUFFER_SIZE);
 
-    for (int i = 0; i < column_readers_.size(); ++i) {
-      const parquet::ColumnChunk& col_chunk =
-          row_group.columns[scalar_reader->col_idx()];
-      if (num_values == -1) {
-        num_values = col_chunk.meta_data.num_values;
-      } else if (col_chunk.meta_data.num_values != num_values) {
-        // TODO for 2.3: improve this error message by saying which columns are different,
-        // and also specify column in other error messages as appropriate
-        return Status(TErrorCode::PARQUET_NUM_COL_VALS_ERROR, scalar_reader->col_idx(),
-            col_chunk.meta_data.num_values, num_values, stream_->filename());
-      }
+    if (num_values == -1) {
+      num_values = col_chunk.meta_data.num_values;
+    } else if (col_chunk.meta_data.num_values != num_values) {
+      // TODO for 2.3: improve this error message by saying which columns are different,
+      // and also specify column in other error messages as appropriate
+      return Status(TErrorCode::PARQUET_NUM_COL_VALS_ERROR, scalar_reader->col_idx(),
+          col_chunk.meta_data.num_values, num_values, stream_->filename());
+    }
 
-      RETURN_IF_ERROR(ValidateColumn(*scalar_reader, row_group_idx));
+    RETURN_IF_ERROR(ValidateColumn(*scalar_reader, row_group_idx));
 
-      // If there is a dictionary page, the file format requires it to come before
-      // any data pages.  We need to start reading the column from the data page.
-      if (col_chunk.meta_data.__isset.dictionary_page_offset) {
-        if (col_chunk.meta_data.dictionary_page_offset >= col_start) {
-          stringstream ss;
-          ss << "File " << file_desc->filename << ": metadata is corrupt. "
-            << "Dictionary page (offset=" << col_chunk.meta_data.dictionary_page_offset
-            << ") must come before any data pages (offset=" << col_start << ").";
-          return Status(ss.str());
-        }
-        col_start = col_chunk.meta_data.dictionary_page_offset;
-      }
-      int64_t col_len = col_chunk.meta_data.total_compressed_size;
-      int64_t col_end = col_start + col_len;
-      if (col_end <= 0 || col_end > file_desc->file_length) {
+    // If there is a dictionary page, the file format requires it to come before
+    // any data pages.  We need to start reading the column from the data page.
+    if (col_chunk.meta_data.__isset.dictionary_page_offset) {
+      if (col_chunk.meta_data.dictionary_page_offset >= col_start) {
         stringstream ss;
         ss << "File " << file_desc->filename << ": metadata is corrupt. "
-          << "Column " << scalar_reader->col_idx() << " has invalid column offsets "
-          << "(offset=" << col_start << ", size=" << col_len << ", "
-          << "file_size=" << file_desc->file_length << ").";
+          << "Dictionary page (offset=" << col_chunk.meta_data.dictionary_page_offset
+          << ") must come before any data pages (offset=" << col_start << ").";
         return Status(ss.str());
       }
-      if (file_version_.application == "parquet-mr" && file_version_.VersionLt(1, 2, 9)) {
-        // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
-        // dictionary page header size in total_compressed_size and total_uncompressed_size
-        // (see IMPALA-694). We pad col_len to compensate.
-        int64_t bytes_remaining = file_desc->file_length - col_end;
-        int64_t pad = min(static_cast<int64_t>(MAX_DICT_HEADER_SIZE), bytes_remaining);
-        col_len += pad;
-      }
+      col_start = col_chunk.meta_data.dictionary_page_offset;
+    }
+    int64_t col_len = col_chunk.meta_data.total_compressed_size;
+    int64_t col_end = col_start + col_len;
+    if (col_end <= 0 || col_end > file_desc->file_length) {
+      stringstream ss;
+      ss << "File " << file_desc->filename << ": metadata is corrupt. "
+        << "Column " << scalar_reader->col_idx() << " has invalid column offsets "
+        << "(offset=" << col_start << ", size=" << col_len << ", "
+        << "file_size=" << file_desc->file_length << ").";
+      return Status(ss.str());
+    }
+    if (file_version_.application == "parquet-mr" && file_version_.VersionLt(1, 2, 9)) {
+      // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
+      // dictionary page header size in total_compressed_size and total_uncompressed_size
+      // (see IMPALA-694). We pad col_len to compensate.
+      int64_t bytes_remaining = file_desc->file_length - col_end;
+      int64_t pad = min(static_cast<int64_t>(MAX_DICT_HEADER_SIZE), bytes_remaining);
+      col_len += pad;
+    }
 
-      // TODO: this will need to change when we have co-located files and the columns
-      // are different files.
-      if (!col_chunk.file_path.empty()) {
-        FILE_CHECK_EQ(col_chunk.file_path, string(metadata_range_->file()));
-      }
+    // TODO: this will need to change when we have co-located files and the columns
+    // are different files.
+    if (!col_chunk.file_path.empty()) {
+      FILE_CHECK_EQ(col_chunk.file_path, string(metadata_range_->file()));
+    }
 
-      DiskIoMgr::ScanRange* col_range = scan_node_->AllocateScanRange(
-          metadata_range_->fs(), metadata_range_->file(), col_len, col_start,
-          scalar_reader->col_idx(), metadata_range_->disk_id(),
-          metadata_range_->try_cache(), metadata_range_->expected_local(),
-          file_desc->mtime, INITIAL_SCAN_RANGE_CAPACITY, -1, max_scan_range_buffer_size);
-      col_ranges.push_back(col_range);
+    DiskIoMgr::ScanRange* col_range = scan_node_->AllocateScanRange(
+        metadata_range_->fs(), metadata_range_->file(), col_len, col_start,
+        scalar_reader->col_idx(), metadata_range_->disk_id(),
+        metadata_range_->try_cache(), metadata_range_->expected_local(),
+        file_desc->mtime, INITIAL_SCAN_RANGE_CAPACITY, -1, max_scan_range_buffer_size);
+    col_ranges.push_back(col_range);
 
-      // Get the stream that will be used for this column
-      ScannerContext::Stream* stream = context_->AddStream(col_range);
-      DCHECK(stream != NULL);
+    // Get the stream that will be used for this column
+    ScannerContext::Stream* stream = context_->AddStream(col_range);
+    DCHECK(stream != NULL);
 
-      RETURN_IF_ERROR(scalar_reader->Reset(&col_chunk.meta_data, stream));
+    RETURN_IF_ERROR(scalar_reader->Reset(&col_chunk.meta_data, stream));
 
-      const SlotDescriptor* slot_desc = scalar_reader->slot_desc();
-      if (slot_desc == NULL || !slot_desc->type().IsStringType() ||
-          col_chunk.meta_data.codec != parquet::CompressionCodec::UNCOMPRESSED) {
-        // Non-string types are always compact.  Compressed columns don't reference data in
-        // the io buffers after tuple materialization.  In both cases, we can set compact to
-        // true and recycle buffers more promptly.
-        stream->set_contains_tuple_data(false);
-      }
+    const SlotDescriptor* slot_desc = scalar_reader->slot_desc();
+    if (slot_desc == NULL || !slot_desc->type().IsStringType() ||
+        col_chunk.meta_data.codec != parquet::CompressionCodec::UNCOMPRESSED) {
+      // Non-string types are always compact.  Compressed columns don't reference data in
+      // the io buffers after tuple materialization.  In both cases, we can set compact to
+      // true and recycle buffers more promptly.
+      stream->set_contains_tuple_data(false);
     }
   }
   DCHECK_EQ(col_ranges.size(), num_scalar_readers);
