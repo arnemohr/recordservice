@@ -28,23 +28,14 @@ d8de07c01e39b2aae4cdbe81b40a9ed1fcf5dc36
 Python Virtual Env
 0e709a9c05662bd06e2602929881dc6522c584c3 
 
-Sentry Version update
-15a60f32aaa19eb6e03069c7214780a74eea73d3 
+Python Virtual Env
+4cfe20cbd9dbf394b1a551382f30a169bc595518
 
-Nested types array serialization
-9f120e47c115f0b37c9742664fe0e81fef4595c5 
+Fix avro schema handling in FE (too many conflicts)
+af46f26e130f4bb73214d1b40d5779c661535fec
 
-don't discard array buffers
-1a073e5b0eb8784663f7a8f2f25caff73827f6e4 
+IMPALA-2251: disallow clashing text delimiters
+cc7246b0ef2a760fffef1a1c378d350d6d37b5e3
 
-Nested type: expr cloing
-609a586d9172a5153e10e9d6ca9570887153fa96 
-
-Date time interval, missing returns?
-110ad49d60d2ee2a7b0a56b02c5698da500f7ca5 
-
-SPLIT_PART REGEXP_LIKE, possible bug?
-90eda963b58af3bc29dc1ac8e42e2ecc1da65aee 
-
-rev RE2
-44e1db35f3f7313e66eaf8c74f5fc3ff070d053c 
+IMPALA-2257: fix broken build caused by IMPALA-2251 fix
+8fcdff03363fa663fbf1d049659cc35f193aaa9d
