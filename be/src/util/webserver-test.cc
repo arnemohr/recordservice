@@ -308,7 +308,7 @@ TEST(Webserver, NoFrameEmbeddingTest) {
 
 const string STRING_WITH_NULL = "123456789\0ABCDE";
 
-void NullCharCallback(const Webserver::ArgumentMap& args, stringstream* out) {
+void NullCharCallback(const Webserver::WebRequest& args, stringstream* out) {
   (*out) << STRING_WITH_NULL;
 }
 
