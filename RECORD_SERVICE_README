@@ -6,8 +6,9 @@ To build this repo:
   - Make sure RECORD_SERVICE_HOME is set to the home of that repo.
   - Follow the normal Impala build instructions.
 
-Last rebase: 8/20/2015 
-  b68c8f93dd21fbcc0687effbff15d6663f20350a: Remove DCHECK_NOTNULL(x)
+Last rebase: 9/10/2015 
+  Fail queries that require a SubplanNode when using legacy joins
+  8a09140691cdd6a9432679181bf1ac4d0166e5f2
 
 Skipped:
 Add option in generate_metrics.py to output CM mdl
@@ -35,8 +36,8 @@ IMPALA-2257: fix broken build caused by IMPALA-2251 fix
 8fcdff03363fa663fbf1d049659cc35f193aaa9d
 
 Nested Types: Check un/supported file formats for complex types.
-
 2b4d7ecd22e914f0f4c9d612f76de22fe1d484d9
+
 IMPALA-1136, IMPALA-2161: Skip \u0000 characters when dealing Avro (Need toolchain update)
 9880145daa79f5cc603908ddf7aac6fc61e642d2
 
