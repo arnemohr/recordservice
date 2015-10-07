@@ -565,7 +565,7 @@ static void PopulateResultSchema(const TResultSetMetadata& metadata,
   }
 }
 
-recordservice::TProtocolVersion::type ImpalaServer::GetProtocolVersion() {
+void ImpalaServer::GetProtocolVersion(recordservice::TProtocolVersion& return_val) {
   shared_ptr<SessionState> session;
   const TUniqueId& session_id = ThriftServer::GetThreadConnectionId();
   Status status = GetSessionState(session_id, &session);
@@ -586,7 +586,7 @@ recordservice::TProtocolVersion::type ImpalaServer::GetProtocolVersion() {
     ss << "Unexpected session type: " << session->session_type;
     ThrowRecordServiceException(recordservice::TErrorCode::INTERNAL_ERROR, ss.str());
   }
-  return recordservice::TProtocolVersion::V1;
+  return_val = "1.0";
 }
 
 TExecRequest ImpalaServer::PlanRecordServiceRequest(

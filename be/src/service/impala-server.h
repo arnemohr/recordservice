@@ -231,7 +231,7 @@ class ImpalaServer : public ImpalaServiceIf, public ImpalaHiveServer2ServiceIf,
       const recordservice::TPlanRequestParams& req);
   virtual void GetSchema(recordservice::TGetSchemaResult& return_val,
       const recordservice::TPlanRequestParams& req);
-  virtual recordservice::TProtocolVersion::type GetProtocolVersion();
+  virtual void GetProtocolVersion(recordservice::TProtocolVersion& return_val);
   virtual void GetMetric(recordservice::TMetricResponse& return_val,
       const std::string& key);
   virtual void GetDelegationToken(recordservice::TDelegationToken& token,
