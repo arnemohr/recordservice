@@ -20,41 +20,41 @@ CMD=$1
 
 function log {
   timestamp=$(date)
-  echo "$timestamp: $1"
+  echo "${timestamp}: $1"
 }
 
 # Adds a xml config to hdfs-site.xml
 add_to_hdfs_site() {
-  FILE=`find $HADOOP_CONF_DIR -name hdfs-site.xml`
+  FILE=`find ${HADOOP_CONF_DIR} -name hdfs-site.xml`
   CONF_END="</configuration>"
   NEW_PROPERTY="<property><name>$1</name><value>$2</value></property>"
-  TMP_FILE=$CONF_DIR/tmp-hdfs-site
-  cat $FILE | sed "s#$CONF_END#$NEW_PROPERTY#g" > $TMP_FILE
-  cp $TMP_FILE $FILE
-  rm -f $TMP_FILE
-  echo $CONF_END >> $FILE
+  TMP_FILE="${CONF_DIR}/tmp-hdfs-site"
+  cat ${FILE} | sed "s#${CONF_END}#${NEW_PROPERTY}#g" > ${TMP_FILE}
+  cp ${TMP_FILE} ${FILE}
+  rm -f ${TMP_FILE}
+  echo ${CONF_END} >> ${FILE}
 }
 
 # RECORDSERVICE_HOME is provided in the recordservice parcel's env script.
-RECORD_SERVICE_BIN_HOME=$RECORDSERVICE_HOME/../../bin
-log "RECORD_SERVICE_BIN_HOME: $RECORD_SERVICE_BIN_HOME"
+RECORD_SERVICE_BIN_HOME=${RECORDSERVICE_HOME}/../../bin
+log "RECORD_SERVICE_BIN_HOME: ${RECORD_SERVICE_BIN_HOME}"
 
-if [ "$DEBUG" == "true" ]; then
+if [ "${DEBUG}" == "true" ]; then
   log "running debug binaries"
   export RECORDSERVICE_BIN=${RECORDSERVICE_BIN:-$RECORDSERVICE_HOME/sbin-debug}
 fi
-log "RECORDSERVICE_BIN: $RECORDSERVICE_BIN"
+log "RECORDSERVICE_BIN: ${RECORDSERVICE_BIN}"
 
-log "CMD: $CMD"
+log "CMD: ${CMD}"
 
 
-export HIVE_CONF_DIR=$CONF_DIR/hive-conf
+export HIVE_CONF_DIR=${CONF_DIR}/hive-conf
 # Use yarn-conf as HADOOP_CONF_DIR
 # Use hadoop-conf if yarn-conf is not there
-export HADOOP_CONF_DIR=$CONF_DIR/yarn-conf
-if [ ! -d "$HADOOP_CONF_DIR" ]; then
-  HADOOP_CONF_DIR=$CONF_DIR/hadoop-conf
-  if [ ! -d "$HADOOP_CONF_DIR" ]; then
+export HADOOP_CONF_DIR=${CONF_DIR}/yarn-conf
+if [ ! -d "${HADOOP_CONF_DIR}" ]; then
+  HADOOP_CONF_DIR="${CONF_DIR}/hadoop-conf"
+  if [ ! -d "${HADOOP_CONF_DIR}" ]; then
     log "No Hadoop configuration found."
     exit 1
   fi
@@ -64,108 +64,109 @@ export USER=recordservice
 
 env
 
-log "HADOOP_CONF_DIR: $HADOOP_CONF_DIR"
-log "HIVE_CONF_DIR: $HIVE_CONF_DIR"
-log "USER: $USER"
+log "HADOOP_CONF_DIR: ${HADOOP_CONF_DIR}"
+log "HIVE_CONF_DIR: ${HIVE_CONF_DIR}"
+log "USER: ${USER}"
+log "RECORDSERVICE_CONF_DIR: ${RECORDSERVICE_CONF_DIR}"
 
-KEYTAB_FILE=$HADOOP_CONF_DIR/../record_service.keytab
+KEYTAB_FILE=${HADOOP_CONF_DIR}/../record_service.keytab
 
 # The following parameters are provided in descriptor/service.sdl.
 log "Starting RecordService"
-log "recordservice_planner_port: $PLANNER_PORT"
-log "recordservice_worker_port: $WORKER_PORT"
-log "log_filename: $LOG_FILENAME"
-log "hostname: $HOSTNAME"
-log "recordservice_webserver_port: $WEBSERVER_PORT"
-log "webserver_doc_root: $RECORDSERVICE_HOME"
-log "log_dir: $LOG_DIR"
-log "principal: $RECORD_SERVICE_PRINCIPAL"
-log "keytab_file: $KEYTAB_FILE"
-log "v: $V"
-log "minidump_directory: $MINIDUMP_DIRECTORY"
-log "mem_limit: $MEM_LIMIT"
-log "sentry_config: $SENTRY_CONFIG"
-log "advanced_config: $ADVANCED_CONFIG"
+log "recordservice_planner_port: ${PLANNER_PORT}"
+log "recordservice_worker_port: ${WORKER_PORT}"
+log "log_filename: ${LOG_FILENAME}"
+log "hostname: ${HOSTNAME}"
+log "recordservice_webserver_port: ${WEBSERVER_PORT}"
+log "webserver_doc_root: ${RECORDSERVICE_HOME}"
+log "log_dir: ${LOG_DIR}"
+log "principal: ${RECORD_SERVICE_PRINCIPAL}"
+log "keytab_file: ${KEYTAB_FILE}"
+log "v: ${V}"
+log "minidump_directory: ${MINIDUMP_DIRECTORY}"
+log "mem_limit: ${MEM_LIMIT}"
+log "sentry_config: ${SENTRY_CONFIG}"
+log "advanced_config: ${ADVANCED_CONFIG}"
 
 # The HDFS default has the wrong units so configure this.
 add_to_hdfs_site dfs.client.file-block-storage-locations.timeout.millis 5000000
 # Add zk quorum to hdfs-site.xml
-add_to_hdfs_site recordservice.zookeeper.connectString $ZK_QUORUM
+add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
 # FIXME this is not secure.
 add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
 
 ARGS="\
-  -log_filename=$LOG_FILENAME \
-  -hostname=$HOSTNAME \
-  -recordservice_webserver_port=$WEBSERVER_PORT \
-  -webserver_doc_root=$RECORDSERVICE_HOME \
-  -log_dir=$LOG_DIR \
+  -log_filename=${LOG_FILENAME} \
+  -hostname=${HOSTNAME} \
+  -recordservice_webserver_port=${WEBSERVER_PORT} \
+  -webserver_doc_root=${RECORDSERVICE_HOME} \
+  -log_dir=${LOG_DIR} \
   -abort_on_config_error=false \
-  -lineage_event_log_dir=$LOG_DIR/lineage \
-  -audit_event_log_dir=$LOG_DIR/audit \
-  -profile_log_dir=$LOG_DIR/profiles/ \
-  -v=$V \
-  -minidump_path=$MINIDUMP_DIRECTORY \
-  -mem_limit=$MEM_LIMIT \
-  -sentry_config=$SENTRY_CONFIG \
+  -lineage_event_log_dir=${LOG_DIR}/lineage \
+  -audit_event_log_dir=${LOG_DIR}/audit \
+  -profile_log_dir=${LOG_DIR}/profiles/ \
+  -v=${V} \
+  -minidump_path=${MINIDUMP_DIRECTORY} \
+  -mem_limit=${MEM_LIMIT} \
+  -sentry_config=${SENTRY_CONFIG} \
   "
 if env | grep -q ^RECORD_SERVICE_PRINCIPAL=
 then
   log "Starting kerberized cluster"
-  ARGS=$ARGS"\
-    -principal=$RECORD_SERVICE_PRINCIPAL \
-    -keytab_file=$KEYTAB_FILE \
+  ARGS=${ARGS}"\
+    -principal=${RECORD_SERVICE_PRINCIPAL} \
+    -keytab_file=${KEYTAB_FILE} \
     "
 fi
 
-if [[ -n $ADVANCED_CONFIG ]];
+if [[ -n ${ADVANCED_CONFIG} ]];
 then
-  log "Add advanced config:$ADVANCED_CONFIG"
-  ARGS="$ARGS $ADVANCED_CONFIG"
+  log "Add advanced config:${ADVANCED_CONFIG}"
+  ARGS="${ARGS} ${ADVANCED_CONFIG}"
 fi
 
 # Enable core dumping if requested.
-if [ "$ENABLE_CORE_DUMP" == "true" ]; then
+if [ "${ENABLE_CORE_DUMP}" == "true" ]; then
   # The core dump directory should already exist.
-  if [ -z "$CORE_DUMP_DIRECTORY" -o ! -d "$CORE_DUMP_DIRECTORY" ]; then
-    log "Could not find core dump directory $CORE_DUMP_DIRECTORY, exiting"
+  if [ -z "${CORE_DUMP_DIRECTORY}" -o ! -d "${CORE_DUMP_DIRECTORY}" ]; then
+    log "Could not find core dump directory ${CORE_DUMP_DIRECTORY}, exiting"
     exit 1
   fi
   # It should also be writable.
-  if [ ! -w "$CORE_DUMP_DIRECTORY" ]; then
-    log "Core dump directory $CORE_DUMP_DIRECTORY is not writable, exiting"
+  if [ ! -w "${CORE_DUMP_DIRECTORY}" ]; then
+    log "Core dump directory ${CORE_DUMP_DIRECTORY} is not writable, exiting"
     exit 1
   fi
 
   ulimit -c unlimited
-  cd "$CORE_DUMP_DIRECTORY"
+  cd "${CORE_DUMP_DIRECTORY}"
   STATUS=$?
-  if [ $STATUS != 0 ]; then
-    log "Could not change to core dump directory to $CORE_DUMP_DIRECTORY, exiting"
-    exit $STATUS
+  if [ ${STATUS} != 0 ]; then
+    log "Could not change to core dump directory to ${CORE_DUMP_DIRECTORY}, exiting"
+    exit ${STATUS}
   fi
 fi
 
-case $CMD in
+case ${CMD} in
   (start_planner_worker)
     log "Starting recordserviced running planner and worker services"
-    exec $RECORD_SERVICE_BIN_HOME/recordserviced $ARGS \
-      -recordservice_planner_port=$PLANNER_PORT \
-      -recordservice_worker_port=$WORKER_PORT
+    exec ${RECORD_SERVICE_BIN_HOME}/recordserviced ${ARGS} \
+      -recordservice_planner_port=${PLANNER_PORT} \
+      -recordservice_worker_port=${WORKER_PORT}
   ;;
 
   (start_planner)
     log "Starting recordserviced running planner service"
-    exec $RECORD_SERVICE_BIN_HOME/recordserviced $ARGS \
-      -recordservice_planner_port=$PLANNER_PORT \
+    exec ${RECORD_SERVICE_BIN_HOME}/recordserviced ${ARGS} \
+      -recordservice_planner_port=${PLANNER_PORT} \
       -recordservice_worker_port=0
   ;;
 
   (start_worker)
     log "Starting recordserviced running worker service"
-    exec $RECORD_SERVICE_BIN_HOME/recordserviced $ARGS \
+    exec ${RECORD_SERVICE_BIN_HOME}/recordserviced ${ARGS} \
       -recordservice_planner_port=0 \
-      -recordservice_worker_port=$WORKER_PORT
+      -recordservice_worker_port=${WORKER_PORT}
   ;;
 
   (stopAll)
@@ -174,6 +175,6 @@ case $CMD in
     ;;
 
   (*)
-    log "Don't understand [$CMD]"
+    log "Don't understand [${CMD}]"
     ;;
 esac

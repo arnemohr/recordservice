@@ -343,9 +343,10 @@
   ],
   "gateway" : {
     "alternatives" : {
-      "name" : "hadoop-conf",
-      "linkRoot" : "/etc/hadoop",
-      "priority" : 90
+      "name" : "recordservice-conf",
+      "linkRoot" : "/etc/recordservice",
+      /* Use a number larger than the default priority number of recordservice-conf */
+      "priority" : 50
     },
     "scriptRunner" : {
       "program" : "scripts/client.sh",
@@ -353,7 +354,8 @@
       "environmentVariables" : {
         "PLANNER_CONF_FILE" : "planner.properties",
         "PW_CONF_FILE" : "pw.properties",
-        "RECORDSERVICE_CONF_FILE" : "recordservice-site.xml"
+        "RECORDSERVICE_CONF_FILE" : "recordservice-site.xml",
+        "SPARK_CONF_FILE" : "spark.conf"
       }
     },
     "parameters" : [
@@ -388,8 +390,25 @@
     "configWriter" : {
       "generators" : [
         {
-          "filename" : "hadoop-conf/recordservice-site.xml",
+          "filename" : "recordservice-conf/recordservice-site.xml",
           "configFormat" : "hadoop_xml",
+          "includedParams" : [
+            "planner_rpc_timeout_ms",
+            "worker_rpc_timeout_ms",
+            "worker_enable_server_logging"
+          ],
+          "kerberosPrincipals": [
+            {
+              "principalName" : "external_kerberos_principal",
+              "propertyName" : "recordservice.kerberos.principal",
+              "external" : "true",
+              "instanceWildcard" : "_HOST"
+            }
+          ]
+        },
+        {
+          "filename" : "recordservice-conf/spark.conf",
+          "configFormat" : "properties",
           "includedParams" : [
             "planner_rpc_timeout_ms",
             "worker_rpc_timeout_ms",
@@ -407,12 +426,12 @@
       ],
       "peerConfigGenerators" : [
         {
-          "filename" : "hadoop-conf/planner.properties",
+          "filename" : "recordservice-conf/planner.properties",
           "params" : ["recordservice_planner_port"],
           "roleName": "RECORD_SERVICE_PLANNER"
         },
         {
-          "filename" : "hadoop-conf/pw.properties",
+          "filename" : "recordservice-conf/pw.properties",
           "params" : ["recordservice_planner_port"],
           "roleName": "RECORD_SERVICE_PW"
         }
