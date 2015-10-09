@@ -227,8 +227,11 @@ class ImpalaServer : public ImpalaServiceIf, public ImpalaHiveServer2ServiceIf,
       const apache::hive::service::cli::thrift::TRenewDelegationTokenReq& req);
 
   /// RecordService planner rpcs.
+
+  // This fails if the Worker membership is empty.
   virtual void PlanRequest(recordservice::TPlanRequestResult& return_val,
       const recordservice::TPlanRequestParams& req);
+
   virtual void GetSchema(recordservice::TGetSchemaResult& return_val,
       const recordservice::TPlanRequestParams& req);
   virtual void GetProtocolVersion(recordservice::TProtocolVersion& return_val);

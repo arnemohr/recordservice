@@ -965,6 +965,14 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
       return_val.hosts = known_recordservice_worker_addresses_;
     }
 
+    // Fail the plan request if the worker membership is empty.
+    // This is probably due to ZK membership not populated properly.
+    if (return_val.hosts.size() == 0) {
+      ThrowRecordServiceException(recordservice::TErrorCode::INVALID_REQUEST,
+          "Worker membership is empty. Please ensure all RecordService Worker "
+          "nodes are running.");
+    }
+
     // Extract the types of the result.
     DCHECK(result.__isset.result_set_metadata);
     PopulateResultSchema(result.result_set_metadata, &return_val.schema);
