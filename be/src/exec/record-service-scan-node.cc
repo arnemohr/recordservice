@@ -116,6 +116,7 @@ Status RecordServiceScanNode::Prepare(RuntimeState* state) {
   // TODO: Ideally, the Impala planner would know how to do this.
   recordservice::TPlanRequestParams params;
   params.request_type = recordservice::TRequestType::Sql;
+  params.__set_user(state->effective_user());
   params.__set_sql_stmt(stmt.str());
   // Impala doesn't benefit from task combining and it only reduces parallelism.
   params.__set_max_tasks(0);
