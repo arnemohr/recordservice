@@ -19,6 +19,7 @@
 
 set -e
 CREATE_METASTORE=0
+CREATE_SENTRY_STORE=0
 
 # parse command line options
 for ARG in $*
@@ -26,6 +27,9 @@ do
   case "$ARG" in
     -create_metastore)
       CREATE_METASTORE=1
+      ;;
+    -create_sentry_store)
+      CREATE_SENTRY_STORE=1
       ;;
     -k|-kerberize|-kerberos|-kerb)
       # This could also come in through the environment...
@@ -98,11 +102,13 @@ if [ $CREATE_METASTORE -eq 1 ]; then
       | psql -U hiveuser -d hive_$METASTORE_DB
 fi
 
-set +e
-echo "Creating Sentry Policy Server DB"
-dropdb -U hiveuser sentry_policy
-createdb -U hiveuser sentry_policy
-set -e
+if [ $CREATE_SENTRY_STORE -eq 1 ]; then
+  set +e
+  echo "Creating Sentry Policy Server DB"
+  dropdb -U hiveuser sentry_policy
+  createdb -U hiveuser sentry_policy
+  set -e
+fi
 
 # Perform search-replace on $1, output to $2.
 # Search $1 ($GCIN) for strings that look like "${FOO}".  If FOO is defined in
