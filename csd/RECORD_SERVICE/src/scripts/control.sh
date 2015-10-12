@@ -95,6 +95,22 @@ add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
 # FIXME this is not secure.
 add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
 
+SENTRY_CONFIG_FILE=
+# Generate sentry-site.xml if SENTRY_CONFIG is not empty.
+if [[ -n ${SENTRY_CONFIG} ]]; then
+  TMP_FILE="${CONF_DIR}/tmp-sentry-conf-file"
+  touch ${TMP_FILE}
+  echo "<configuration>" > ${TMP_FILE}
+  echo ${SENTRY_CONFIG} >> ${TMP_FILE}
+  echo "</configuration>" >> ${TMP_FILE}
+
+  SENTRY_CONFIG_FILE="${CONF_DIR}/sentry-site.xml"
+  cp ${TMP_FILE} ${SENTRY_CONFIG_FILE}
+  rm -f ${TMP_FILE}
+
+  log "SENTRY_CONFIG_FILE: ${SENTRY_CONFIG_FILE}"
+fi
+
 ARGS="\
   -log_filename=${LOG_FILENAME} \
   -hostname=${HOSTNAME} \
@@ -108,7 +124,7 @@ ARGS="\
   -v=${V} \
   -minidump_path=${MINIDUMP_DIRECTORY} \
   -mem_limit=${MEM_LIMIT} \
-  -sentry_config=${SENTRY_CONFIG} \
+  -sentry_config=${SENTRY_CONFIG_FILE} \
   "
 if env | grep -q ^RECORD_SERVICE_PRINCIPAL=
 then
