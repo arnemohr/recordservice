@@ -145,9 +145,9 @@
       "default" : "8"
     },
     {
-      "name" : "sentry_config",
-      "label" : "Sentry Configuration File",
-      "description" : "sentry-site.xml configuration file.",
+      "name" : "sentry_config_safety_valve",
+      "label" : "Configuration Snippet (Safety Valve) for sentry-site.xml",
+      "description" : "A string to be inserted into the RecordService sentry-site.xml.",
       "type" : "string",
       "default" : ""
     },
@@ -203,7 +203,7 @@
           "LOG_DIR" : "${log_dir}",
           "V" : "${v}",
           "MEM_LIMIT" : "${mem_limit}G",
-          "SENTRY_CONFIG" : "${sentry_config}",
+          "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
           "ADVANCED_CONFIG" : "${advanced_config}",
           "DEBUG" : "${debug}"
         }
@@ -257,7 +257,7 @@
           "LOG_DIR" : "${log_dir}",
           "V" : "${v}",
           "MEM_LIMIT" : "${mem_limit}G",
-          "SENTRY_CONFIG" : "${sentry_config}",
+          "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
           "ADVANCED_CONFIG" : "${advanced_config}",
           "DEBUG" : "${debug}"
         }
@@ -314,7 +314,7 @@
           "MINIDUMP_DIRECTORY" : "${minidump_directory}",
           "V" : "${v}",
           "MEM_LIMIT" : "${mem_limit}G",
-          "SENTRY_CONFIG" : "${sentry_config}",
+          "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
           "ADVANCED_CONFIG" : "${advanced_config}",
           "DEBUG" : "${debug}"
         }
