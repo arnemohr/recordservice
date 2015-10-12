@@ -285,9 +285,11 @@ fi
 
 # Generate the Hadoop configs needed by Impala
 if [[ $FORMAT_METASTORE -eq 1 && -z $METASTORE_SNAPSHOT_FILE ]]; then
-  ${IMPALA_HOME}/bin/create-test-configuration.sh -create_metastore
-else
+  ${IMPALA_HOME}/bin/create-test-configuration.sh -create_metastore -create_sentry_store
+elif [ $TESTS_ACTION -eq 0 ]; then
   ${IMPALA_HOME}/bin/create-test-configuration.sh
+else
+  ${IMPALA_HOME}/bin/create-test-configuration.sh -create_sentry_store
 fi
 
 # If a metastore snapshot exists, load it.
@@ -301,7 +303,7 @@ MAKE_IMPALA_ARGS="${MAKE_IMPALA_ARGS} -build_type=${TARGET_BUILD_TYPE}"
 echo "Calling make_impala.sh ${MAKE_IMPALA_ARGS}"
 $IMPALA_HOME/bin/make_impala.sh ${MAKE_IMPALA_ARGS}
 
-# FIXME: think about how we want to handle this. We probably don't want to ship our 
+# FIXME: think about how we want to handle this. We probably don't want to ship our
 # version of lzo.so but then we need to be able to run with the CDH/Impala version.
 # Disable for now until we have the toolchain fix.
 #if [ -e $IMPALA_LZO ]

@@ -74,7 +74,7 @@ parser.add_option("--start_recordservice", dest="start_recordservice", action="s
                   default=True, help="Starts recordserviced along with impalad")
 parser.add_option("--rs_args", dest="rs_args", default="",
                   help="Additional arguments to pass to RecordService during startup")
-parser.add_option("--use_sentry", dest="use_sentry", action="store_true", default=False,
+parser.add_option("--no_sentry", dest="no_sentry", action="store_true", default=False,
                   help="Start RecordService with Sentry")
 parser.add_option("--sentry_site_file", dest="sentry_site_file", action="store",
                   default=os.path.join(os.environ['HADOOP_CONF_DIR'], 'sentry-site.xml'),
@@ -175,7 +175,7 @@ def start_catalogd():
   print "Starting Catalog Service logging to %s/catalogd.INFO" % options.log_dir
   stderr_log_file_path = os.path.join(options.log_dir, "catalogd-error.log")
   catalogd_args = " ".join(options.catalogd_args)
-  if options.use_sentry:
+  if not options.no_sentry:
     catalogd_args = catalogd_args + " -sentry_config=" + options.sentry_site_file
   args = "%s %s %s" % (build_impalad_logging_args(0, "catalogd"),
                        catalogd_args,
@@ -256,13 +256,13 @@ def start_impalad_instances(cluster_size):
           (build_impalad_logging_args(i, service_name), build_jvm_args(i),
            build_impalad_port_args(i), param_args,
            build_rm_args(i))
-    if options.use_sentry:
+    if not options.no_sentry:
       args = args + " -server_name=" + options.sentry_server_name
     stderr_log_file_path = os.path.join(options.log_dir, '%s-error.log' % service_name)
     exec_impala_process(IMPALAD_PATH, args, stderr_log_file_path)
 
   if (options.start_recordservice):
-    if options.use_sentry:
+    if not options.no_sentry:
       options.rs_args = options.rs_args + " -sentry_config=" + options.sentry_site_file
     exec_recordserviced_process(options.rs_args)
 
