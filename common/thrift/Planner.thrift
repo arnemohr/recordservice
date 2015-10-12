@@ -61,10 +61,11 @@ struct TScanRangeLocation {
   // Index into TQueryExecRequest.host_list.
   1: required i32 host_idx;
 
-  // disk volume identifier of a particular scan range at 'server';
-  // -1 indicates an unknown volume id;
-  // only set for TScanRange.hdfs_file_split
-  2: optional i32 volume_id = -1
+  // 128-bit UUID, identifies an unique storage volume on a datanode;
+  // "" indicates an unkown storage id;
+  // In SimpleScheduler.ComputeScanRangeAssignment, it will be mapped to volume_id,
+  // which is a disk volume identifier of a particular scan range at 'server'.
+  2: optional string storage_id = ""
 
   // If true, this block is cached on this server.
   3: optional bool is_cached = false

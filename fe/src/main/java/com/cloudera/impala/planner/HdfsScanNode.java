@@ -286,8 +286,8 @@ public class HdfsScanNode extends ScanNode {
             // Translate from network address to the global (to this request) host index.
             Integer globalHostIdx = analyzer.getHostIndex().getIndex(networkAddress);
             location.setHost_idx(globalHostIdx);
-            location.setVolume_id(block.getDiskId(i));
             location.setIs_cached(block.isCached(i));
+            location.setStorage_id(block.getStorageId(i));
             locations.add(location);
           }
           // create scan ranges, taking into account maxScanRangeLength

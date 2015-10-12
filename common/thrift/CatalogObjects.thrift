@@ -198,8 +198,9 @@ struct THdfsFileBlock {
   // the network_addresses list of THdfsTable.
   3: required list<i32> replica_host_idxs
 
-  // The list of disk ids for the file block. May not be set if disk ids are not supported
-  4: optional list<i32> disk_ids
+  // The list of storage ids for the file block. May not be set if storage ids are not
+  // supported.
+  4: optional list<string> storage_ids
 
   // For each replica, specifies if the block is cached in memory.
   5: optional list<bool> is_replica_cached

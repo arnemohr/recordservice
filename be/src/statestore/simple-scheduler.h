@@ -178,6 +178,22 @@ class SimpleScheduler : public Scheduler {
   /// Used to make admission decisions in 'Schedule()'
   boost::scoped_ptr<AdmissionController> admission_controller_;
 
+  /// Protects access to storage_id_map_.
+  Lock storage_id_map_lock_;
+
+  /// Map from storage_id to volume_id. A new volume_id will be generated when there is a
+  /// new storage_id. As the storage_id is per disk unique and never changed, we can
+  /// guarantee the mapping from volume_id to the physical volume is consistent.
+  typedef boost::unordered_map<std::string, int> StorageIdMap;
+  StorageIdMap storage_id_map_;
+
+  /// Incremental number assigned to a new storage_id.
+  AtomicInt<int> next_volume_id_;
+
+  /// Insert a new pair of storage id and volume id into storage_id_map_ if storage id
+  /// is not already in the map.
+  void setNextVolumeIdMapping(const string& storage_id);
+
   /// Adds the granted reservation and resources to the active_reservations_ and
   /// active_client_resources_ maps, respectively.
   void AddToActiveResourceMaps(

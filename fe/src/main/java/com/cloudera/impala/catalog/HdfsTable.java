@@ -522,7 +522,7 @@ public class HdfsTable extends Table {
     final Timer.Context loadVolumeIdsTimer = Metrics.INSTANCE
         .getTimerCtx(loadVolumeIdsTimerName_);
 
-    LoadMetadataUtil.loadDiskIds(getFullName(), hostIndex_.size(), blocksToLoad);
+    LoadMetadataUtil.loadStorageIds(getFullName(), hostIndex_.size(), blocksToLoad);
 
     // Stop timer for loadVolumeIds.
     timeSpent = loadVolumeIdsTimer.stop() / Metrics.NANOTOMILLISEC;
@@ -669,7 +669,7 @@ public class HdfsTable extends Table {
     Map<FsKey, FileBlocksInfo> blocksToLoad = Maps.newHashMap();
     HdfsPartition hdfsPartition = createPartition(storageDescriptor, msPartition,
         fileDescMap_, blocksToLoad);
-    LoadMetadataUtil.loadDiskIds(getFullName(), hostIndex_.size(), blocksToLoad);
+    LoadMetadataUtil.loadStorageIds(getFullName(), hostIndex_.size(), blocksToLoad);
     return hdfsPartition;
   }
 

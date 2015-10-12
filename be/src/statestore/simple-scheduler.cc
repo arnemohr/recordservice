@@ -178,7 +178,7 @@ SimpleScheduler::SimpleScheduler(const vector<TNetworkAddress>& backends,
 
 Status SimpleScheduler::Init() {
   LOG(INFO) << "Starting simple scheduler";
-
+  next_volume_id_ = 0;
   if (statestore_subscriber_ != NULL) {
     StatestoreSubscriber::UpdateCallback cb =
         bind<void>(mem_fn(&SimpleScheduler::UpdateMembership), this, _1, _2);
@@ -460,7 +460,7 @@ Status SimpleScheduler::ComputeScanRangeAssignment(
     const TNetworkAddress* data_host = NULL;  // data server; not necessarily backend
     int volume_id = -1;
     bool is_cached = false;
-
+    string storage_id;
     // Separate cached replicas from non-cached replicas
     vector<const TScanRangeLocation*> cached_locations;
     if (schedule_with_caching) {
@@ -489,8 +489,8 @@ Status SimpleScheduler::ComputeScanRangeAssignment(
         if (*assigned_bytes < min_assigned_bytes) {
           min_assigned_bytes = *assigned_bytes;
           data_host = &replica_host;
-          volume_id = location.volume_id;
           is_cached = false;
+          storage_id = location.storage_id;
         }
       }
     } else {
@@ -500,8 +500,8 @@ Status SimpleScheduler::ComputeScanRangeAssignment(
       uint64_t initial_bytes = 0L;
       min_assigned_bytes = *FindOrInsert(&assigned_bytes_per_host, replica_host, initial_bytes);
       data_host = &replica_host;
-      volume_id = cached_locations[rand_host]->volume_id;
       is_cached = true;
+      storage_id = cached_locations[rand_host]->storage_id;
     }
 
     int64_t scan_range_length = 0;
@@ -537,6 +537,11 @@ Status SimpleScheduler::ComputeScanRangeAssignment(
     // add scan range
     TScanRangeParams scan_range_params;
     scan_range_params.scan_range = scan_range_locations.scan_range;
+    // set volume_id if storage_id is supported
+    if (!storage_id.empty()) {
+      setNextVolumeIdMapping(storage_id);
+      volume_id = storage_id_map_[storage_id];
+    }
     // Explicitly set the optional fields.
     scan_range_params.__set_volume_id(volume_id);
     scan_range_params.__set_is_cached(is_cached);
@@ -572,6 +577,14 @@ Status SimpleScheduler::ComputeScanRangeAssignment(
   }
 
   return Status::OK();
+}
+
+void SimpleScheduler::setNextVolumeIdMapping(const string& storage_id) {
+  lock_guard<Lock> lock(storage_id_map_lock_);
+  if (storage_id_map_.find(storage_id) == storage_id_map_.end()) {
+    storage_id_map_[storage_id] = next_volume_id_;
+    ++next_volume_id_;
+  }
 }
 
 void SimpleScheduler::ComputeFragmentExecParams(const TQueryExecRequest& exec_request,

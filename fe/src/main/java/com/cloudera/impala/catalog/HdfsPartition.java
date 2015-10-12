@@ -200,23 +200,23 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
     }
 
     /**
-     * Populates the given THdfsFileBlock's list of disk ids with the given disk id
-     * values. The number of disk ids must match the number of network addresses
-     * set in the file block.
+     * Populates the given THdfsFileBlock's list of storage ids with the given storage id
+     * values. The number of storage ids must match the number of network addresses set
+     * in the file block.
      */
-    public static void setDiskIds(int[] diskIds, THdfsFileBlock fileBlock) {
+    public static void setStorageIds(String[] storageIds, THdfsFileBlock fileBlock) {
       Preconditions.checkArgument(
-          diskIds.length == fileBlock.getReplica_host_idxs().size());
-      fileBlock.setDisk_ids(Arrays.asList(ArrayUtils.toObject(diskIds)));
+          storageIds.length == fileBlock.getReplica_host_idxs().size());
+      fileBlock.setStorage_ids(Arrays.asList(storageIds));
     }
 
     /**
-     * Return the disk id of the block in BlockLocation.getNames()[hostIndex]; -1 if
-     * disk id is not supported.
+     * Return the storage id if the block in BlockLocation.getNames()[hostIndex], and an
+     * empty string if storage id is not supported.
      */
-    public int getDiskId(int hostIndex) {
-      if (fileBlock_.disk_ids == null) return -1;
-      return fileBlock_.getDisk_ids().get(hostIndex);
+    public String getStorageId(int hostIndex) {
+      if (fileBlock_.storage_ids == null) return "";
+      return fileBlock_.getStorage_ids().get(hostIndex);
     }
 
     public boolean isCached(int hostIndex) {
@@ -234,7 +234,7 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
       return Objects.toStringHelper(this)
           .add("offset", fileBlock_.offset)
           .add("length", fileBlock_.length)
-          .add("#disks", fileBlock_.getDisk_idsSize())
+          .add("#disks", fileBlock_.getStorage_idsSize())
           .toString();
     }
   }

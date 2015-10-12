@@ -26,17 +26,12 @@ import java.util.Set;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.AbstractFileSystem;
 import org.apache.hadoop.fs.BlockLocation;
-import org.apache.hadoop.fs.BlockStorageLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.fs.VolumeId;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
-import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,12 +65,8 @@ public class LoadMetadataUtil {
   // and its usage in getFileSystem suggests it should be.
   private static final Configuration CONF = new Configuration();
 
-  private static final boolean SUPPORTS_VOLUME_ID =
-      CONF.getBoolean(DFSConfigKeys.DFS_HDFS_BLOCKS_METADATA_ENABLED,
-          DFSConfigKeys.DFS_HDFS_BLOCKS_METADATA_ENABLED_DEFAULT);
-
-  // Possibly be called when multiple threads loading different hdfs tables.
-  private static volatile boolean hasLoggedDiskIdFormatWarning_ = false;
+  // Prefix in storageId.
+  private static final String STORAGE_ID_PREFIX = "DS-";
 
   public static Configuration getConf() {
     return CONF;
@@ -249,49 +240,39 @@ public class LoadMetadataUtil {
   }
 
   /**
-   * Populate disk/volume ID metadata inside the newly created THdfsFileBlocks.
+   * Populate storage ID metadata inside the newly created THdfsFileBlocks.
    * perFsFileBlocks maps from each filesystem to a FileBLocksInfo. The first list
    * contains the newly created THdfsFileBlocks and the second contains the
    * corresponding BlockLocations.
    */
-  public static void loadDiskIds(String tblFullName, int tblNumNodes,
+  public static void loadStorageIds(String tblFullName, int tblNumNodes,
       Map<FsKey, FileBlocksInfo> perFsFileBlocks) {
-    if (!SUPPORTS_VOLUME_ID) return;
-    // Loop over each filesystem.  If the filesystem is DFS, retrieve the volume IDs
-    // for all the blocks.
+    // Retrieve the storage IDs for all the blocks from BlockLocation.
     for (FsKey fsKey: perFsFileBlocks.keySet()) {
-      FileSystem fs = fsKey.filesystem;
-      // Only DistributedFileSystem has getFileBlockStorageLocations().  It's not even
-      // part of the FileSystem interface, so we'll need to downcast.
-      if (!(fs instanceof DistributedFileSystem)) continue;
-
-      LOG.trace("Loading disk ids for: " + tblFullName + ". nodes: " + tblNumNodes +
+      LOG.trace("Loading storage ids for: " + tblFullName + ". nodes: " + tblNumNodes +
           ". filesystem: " + fsKey);
       FileBlocksInfo blockLists = perFsFileBlocks.get(fsKey);
       Preconditions.checkNotNull(blockLists);
 
-      BlockStorageLocation[] storageLocs = getStorageLocation(fs, blockLists.locations);
+      long unknownStorageIdCount = 0;
+      String[] storageIds;
 
-      if (storageLocs == null) continue;
-
-      long unknownDiskIdCount = 0;
-      // Attach volume IDs given by the storage location to the corresponding
-      // THdfsFileBlocks.
-      for (int locIdx = 0; locIdx < storageLocs.length; ++locIdx) {
-        VolumeId[] volumeIds = storageLocs[locIdx].getVolumeIds();
-        THdfsFileBlock block = blockLists.blocks.get(locIdx);
-        // Convert opaque VolumeId to 0 based ids.
-        // TODO: the diskId should be eventually retrievable from Hdfs when the
-        // community agrees this API is useful.
-        int[] diskIds = new int[volumeIds.length];
-        for (int i = 0; i < volumeIds.length; ++i) {
-          diskIds[i] = getDiskId(volumeIds[i]);
-          if (diskIds[i] < 0) ++unknownDiskIdCount;
+      for (int i = blockLists.locations.size() - 1; i >= 0; --i) {
+        storageIds = blockLists.locations.get(i).getStorageIds();
+        Preconditions.checkArgument(storageIds != null);
+        // Remove prefix in StorageId.
+        for (int j = storageIds.length - 1; j >= 0; --j) {
+          if (storageIds[j] == null) {
+            ++unknownStorageIdCount;
+            storageIds[j] = "";
+          } else {
+            storageIds[j] = storageIds[j].replaceFirst(STORAGE_ID_PREFIX, "");
+          }
         }
-        FileBlock.setDiskIds(diskIds, block);
+        FileBlock.setStorageIds(storageIds, blockLists.blocks.get(i));
       }
-      if (unknownDiskIdCount > 0) {
-        LOG.warn("Unknown disk id count for filesystem " + fs + ":" + unknownDiskIdCount);
+      if (unknownStorageIdCount > 0) {
+        LOG.warn("Unknown storage id count: " + unknownStorageIdCount);
       }
     }
   }
@@ -398,41 +379,10 @@ public class LoadMetadataUtil {
   }
 
   /**
-   * Load blockStorageLocation which contains the block volume ids, according to list of
-   * block locations.
-   */
-  private static BlockStorageLocation[] getStorageLocation(FileSystem fs,
-      List<BlockLocation> locations) {
-    DistributedFileSystem dfs = (DistributedFileSystem)fs;
-    BlockStorageLocation[] storageLocs = null;
-    try {
-      // Get the BlockStorageLocations for all the blocks.
-      storageLocs = dfs.getFileBlockStorageLocations(locations);
-    } catch (IOException e) {
-      LOG.error("Couldn't determine block storage locations for filesystem " +
-          fs + ":\n" + e.getMessage());
-      return null;
-    }
-    if (storageLocs == null || storageLocs.length == 0) {
-      LOG.warn("Attempted to get block locations for filesystem " + fs +
-          " but the call returned no results");
-      return null;
-    }
-    if (storageLocs.length != locations.size()) {
-      // Block locations and storage locations didn't match up.
-      LOG.error("Number of block storage locations not equal to number of blocks: "
-          + "#storage locations=" + Long.toString(storageLocs.length)
-          + " #blocks=" + Long.toString(locations.size()));
-      return null;
-    }
-    return storageLocs;
-  }
-
-  /**
    * Queries the filesystem to load the file block metadata (e.g. DFS blocks) for the
    * given file. Adds the newly created block metadata and block location to the
-   * perFsFileBlocks, so that the disk IDs for each block can be retrieved with one call
-   * to DFS.
+   * perFsFileBlocks, so that the storage IDs for each block can be retrieved from
+   * BlockLocation.
    *
    * Must be threadsafe. Access to 'perFsFileBlocks' and 'hostIndex' must be protected.
    */
@@ -511,32 +461,5 @@ public class LoadMetadataUtil {
       remaining -= len;
       start += len;
     }
-  }
-
-  /**
-   * Return a disk id (0-based) index from the Hdfs VolumeId object.
-   * There is currently no public API to get at the volume id. We'll have to get it by
-   * accessing the internals.
-   */
-  private static int getDiskId(VolumeId hdfsVolumeId) {
-    // Initialize the diskId as -1 to indicate it is unknown
-    int diskId = -1;
-
-    if (hdfsVolumeId != null) {
-      // TODO: this is a hack and we'll have to address this by getting the
-      // public API. Also, we need to be very mindful of this when we change
-      // the version of HDFS.
-      String volumeIdString = hdfsVolumeId.toString();
-      // This is the hacky part. The toString is currently the underlying id
-      // encoded as hex.
-      byte[] volumeIdBytes = StringUtils.hexStringToByte(volumeIdString);
-      if (volumeIdBytes != null && volumeIdBytes.length == 4) {
-        diskId = Bytes.toInt(volumeIdBytes);
-      } else if (!hasLoggedDiskIdFormatWarning_) {
-        LOG.warn("wrong disk id format: " + volumeIdString);
-        hasLoggedDiskIdFormatWarning_ = true;
-      }
-    }
-    return diskId;
   }
 }
