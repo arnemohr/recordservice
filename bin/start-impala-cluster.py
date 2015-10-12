@@ -71,7 +71,13 @@ parser.add_option("--start_recordservice", dest="start_recordservice", action="s
                   default=True, help="Starts recordserviced along with impalad")
 parser.add_option("--rs_args", dest="rs_args", default="",
                   help="Additional arguments to pass to RecordService during startup")
-
+parser.add_option("--use_sentry", dest="use_sentry", action="store_true", default=False,
+                  help="Start RecordService with Sentry")
+parser.add_option("--sentry_site_file", dest="sentry_site_file", action="store",
+                  default=os.path.join(os.environ['HADOOP_CONF_DIR'], 'sentry-site.xml'),
+                  help="Location of sentry site xml file")
+parser.add_option("--sentry_server_name", dest="sentry_server_name", action="store",
+                  default="server1", help="Name of sentry server")
 parser.add_option("--num_planner_servers", type="int", dest="num_planner_servers",
                   default=1, help="Number of daemons that run the planner service.")
 
@@ -165,8 +171,12 @@ def start_statestore():
 def start_catalogd():
   print "Starting Catalog Service logging to %s/catalogd.INFO" % options.log_dir
   stderr_log_file_path = os.path.join(options.log_dir, "catalogd-error.log")
+  catalogd_args = " ".join(options.catalogd_args)
+  if options.use_sentry:
+    catalogd_args = catalogd_args + " -sentry_config=" + options.sentry_site_file
   args = "%s %s %s" % (build_impalad_logging_args(0, "catalogd"),
-                       options.catalogd_args, build_jvm_args(options.cluster_size))
+                       catalogd_args,
+                       build_jvm_args(options.cluster_size))
   exec_impala_process(CATALOGD_PATH, args, stderr_log_file_path)
   if not check_process_exists("catalogd", 10):
     raise RuntimeError("Unable to start catalogd. Check log or file permissions"
@@ -243,10 +253,14 @@ def start_impalad_instances(cluster_size):
            build_impalad_port_args(i),
            options.impalad_args.replace("#ID", str(i)),
            build_rm_args(i))
+    if options.use_sentry:
+      args = args + " -server_name=" + options.sentry_server_name
     stderr_log_file_path = os.path.join(options.log_dir, '%s-error.log' % service_name)
     exec_impala_process(IMPALAD_PATH, args, stderr_log_file_path)
 
   if (options.start_recordservice):
+    if options.use_sentry:
+      options.rs_args = options.rs_args + " -sentry_config=" + options.sentry_site_file
     exec_recordserviced_process(options.rs_args)
 
 def wait_for_impala_process_count(impala_cluster, retries=3):
