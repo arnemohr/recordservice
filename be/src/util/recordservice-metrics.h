@@ -17,6 +17,7 @@
 #define IMPALA_UTIL_RECORD_SERVICE_METRICS_H
 
 #include "util/metrics.h"
+#include "util/collection-metrics.h"
 
 namespace impala {
 
@@ -56,6 +57,9 @@ class RecordServiceMetricKeys {
 
   // Total rows fetched.
   static const char* NUM_ROWS_FETCHED;
+
+  // Task size.
+  static const char* RECORDSERVICE_TASK_SIZE_KEY;
 };
 
 // Global recordservice-wide metrics.
@@ -83,6 +87,9 @@ class RecordServiceMetrics {
   static IntCounter* NUM_CLOSED_TASKS;
 
   static IntCounter* NUM_ROWS_FETCHED;
+
+  // Other
+  static StatsMetric<int>* RECORDSERVICE_TASK_SIZE;
 
   // Creates and initializes all metrics above in 'm'.
   static void CreateMetrics(MetricGroup* m);
