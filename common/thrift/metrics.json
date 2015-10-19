@@ -690,6 +690,16 @@
     "key": "impala.thrift-server.record-service-worker.total-connections"
   },
   {
+    "description": "RecordService Task Size (Bytes).",
+    "contexts": [
+      "IMPALAD"
+    ],
+    "label": "RecordService Task Size (Bytes)",
+    "units": "BYTES",
+    "kind": "STATS",
+    "key": "record-service.task-bytes"
+  },
+  {
     "description": "The amount of memory freed by the last memory tracker garbage collection.",
     "contexts": [
       "IMPALAD"

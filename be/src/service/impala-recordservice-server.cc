@@ -1202,6 +1202,9 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
       }
       serializer.Serialize<TRecordServiceTask>(&rs_task, &task.task);
       return_val.tasks.push_back(task);
+
+      // Update metrics for task size
+      RecordServiceMetrics::RECORDSERVICE_TASK_SIZE->Update(task.task.size());
     }
   } catch (const recordservice::TRecordServiceException& e) {
     RecordServiceMetrics::NUM_FAILED_PLAN_REQUESTS->Increment(1);

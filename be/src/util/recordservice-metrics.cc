@@ -69,9 +69,14 @@ const char* RecordServiceMetricKeys::RUNNING_PLANNER =
     "record-service.running-planner";
 const char* RecordServiceMetricKeys::RUNNING_WORKER =
     "record-service.running-worker";
+const char* RecordServiceMetricKeys::RECORDSERVICE_TASK_SIZE_KEY =
+    "record-service.task-bytes";
 
 BooleanProperty* RecordServiceMetrics::RUNNING_PLANNER = NULL;
 BooleanProperty* RecordServiceMetrics::RUNNING_WORKER = NULL;
+
+// Other
+StatsMetric<int>* RecordServiceMetrics::RECORDSERVICE_TASK_SIZE = NULL;
 
 void RecordServiceMetrics::CreateMetrics(MetricGroup* m) {
   RUNNING_PLANNER = m->AddPropertyWithDesc<bool>(
@@ -111,6 +116,9 @@ void RecordServiceMetrics::CreateMetrics(MetricGroup* m) {
 
   ADD_INT_COUNTER(m, NUM_ROWS_FETCHED,
       "Number of rows fetched across all tasks.");
+
+  RECORDSERVICE_TASK_SIZE = StatsMetric<int>::CreateAndRegister(
+      m, RecordServiceMetricKeys::RECORDSERVICE_TASK_SIZE_KEY);
 }
 
 }
