@@ -97,7 +97,8 @@ Frontend::Frontend(bool running_planner, bool running_worker) {
     {"renewDelegationToken", "([B)V", &renew_delegation_token_id_},
     {"retrieveUserAndPassword", "([B)[B", &retrieve_user_and_password_id_},
     {"getMasterKey", "([B)[B", &get_master_key_id_},
-    {"authorizePath", "([B)[B", &auth_path_id_}
+    {"authorizePath", "([B)[B", &auth_path_id_},
+    {"showCreateFunction", "([B)Ljava/lang/String;", &show_create_function_id_}
   };
 
   JNIEnv* jni_env = getJNIEnv();
@@ -175,6 +176,10 @@ Status Frontend::DescribeTable(const TDescribeTableParams& params,
 
 Status Frontend::ShowCreateTable(const TTableName& table_name, string* response) {
   return JniUtil::CallJniMethod(fe_, show_create_table_id_, table_name, response);
+}
+
+Status Frontend::ShowCreateFunction(const TGetFunctionsParams& params, string* response) {
+  return JniUtil::CallJniMethod(fe_, show_create_function_id_, params, response);
 }
 
 Status Frontend::GetTableNames(const string& db, const string* pattern,

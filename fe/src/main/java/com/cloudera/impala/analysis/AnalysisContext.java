@@ -104,6 +104,9 @@ public class AnalysisContext {
     public boolean isShowCreateTableStmt() {
       return stmt_ instanceof ShowCreateTableStmt;
     }
+    public boolean isShowCreateFunctionStmt() {
+      return stmt_ instanceof ShowCreateFunctionStmt;
+    }
     public boolean isShowFilesStmt() { return stmt_ instanceof ShowFilesStmt; }
     public boolean isDescribeStmt() { return stmt_ instanceof DescribeStmt; }
     public boolean isResetMetadataStmt() { return stmt_ instanceof ResetMetadataStmt; }
@@ -136,8 +139,8 @@ public class AnalysisContext {
     private boolean isViewMetadataStmt() {
       return isShowFilesStmt() || isShowTablesStmt() || isShowDbsStmt() ||
           isShowFunctionsStmt() || isShowRolesStmt() || isShowGrantRoleStmt() ||
-          isShowCreateTableStmt() || isShowDataSrcsStmt() || isShowStatsStmt() ||
-          isDescribeStmt();
+          isShowCreateTableStmt() || isShowCreateFunctionStmt() ||
+          isShowDataSrcsStmt() || isShowStatsStmt() || isDescribeStmt();
     }
 
     private boolean isGrantRevokeStmt() {
@@ -289,6 +292,11 @@ public class AnalysisContext {
     public ShowCreateTableStmt getShowCreateTableStmt() {
       Preconditions.checkState(isShowCreateTableStmt());
       return (ShowCreateTableStmt) stmt_;
+    }
+
+    public ShowCreateFunctionStmt getShowCreateFunctionStmt() {
+      Preconditions.checkState(isShowCreateFunctionStmt());
+      return (ShowCreateFunctionStmt) stmt_;
     }
 
     public StatementBase getStmt() { return stmt_; }
