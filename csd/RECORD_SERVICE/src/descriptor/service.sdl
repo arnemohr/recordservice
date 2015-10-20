@@ -175,8 +175,7 @@
       "logging" : {
         "dir" : "/var/log/recordserviced",
         "filename" : "recordserviced.INFO",
-        /* This should be glog, but only CM5.4.3+ support it */
-        "loggingType" : "other",
+        "loggingType" : "glog",
         "modifiable" : true
       },
       "externalLink" : {
@@ -230,8 +229,7 @@
       "logging" : {
         "dir" : "/var/log/recordserviced",
         "filename" : "recordserviced.INFO",
-        /* This should be glog, but only CM5.4.3+ support it */
-        "loggingType" : "other",
+        "loggingType" : "glog",
         "modifiable" : true
       },
       "externalLink" : {
@@ -284,8 +282,7 @@
       "logging" : {
         "dir" : "/var/log/recordserviced",
         "filename" : "recordserviced.INFO",
-        /* This should be glog, but only CM5.4.3+ support it */
-        "loggingType" : "other",
+        "loggingType" : "glog",
         "modifiable" : true
       },
       "externalLink" : {
