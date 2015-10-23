@@ -791,6 +791,7 @@ Status DetermineFileFormat(hdfsFS fs, const string& path,
 struct CombinedTask {
   vector<int> local_hosts;
   vector<int> ranges;
+  int64_t total_size;
 
   CombinedTask() {}
 
@@ -799,6 +800,7 @@ struct CombinedTask {
     for (int i = 0; i < scan_range.locations.size(); ++i) {
       local_hosts.push_back(scan_range.locations[i].host_idx);
     }
+    total_size += scan_range.scan_range.hdfs_file_split.length;
   }
 };
 
@@ -929,6 +931,7 @@ void CombineTasks(const vector<TScanRangeLocations>& scan_ranges,
           task.ranges.push_back(range_idx);
           combined_task_size += range_length;
         }
+        task.total_size = combined_task_size;
         tasks->push_back(task);
         num_colocated_ranges -= task.ranges.size();
       }
@@ -1084,9 +1087,9 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
 
     for (int i = 0; i < combined_tasks.size(); ++i) {
       recordservice::TTask task;
-      task.task_size = combined_tasks[i].ranges.size();
+      task.task_size = combined_tasks[i].total_size;
       // Only scans of a single range can be ordered
-      task.results_ordered = (task.task_size == 1);
+      task.results_ordered = (combined_tasks[i].ranges.size() == 1);
 
       // Generate the task id from the request id. Just increment the lo field. It
       // doesn't matter if this overflows. Return the task ID to the RecordService
