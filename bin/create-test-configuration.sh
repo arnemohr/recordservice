@@ -19,7 +19,8 @@
 
 set -e
 CREATE_METASTORE=0
-CREATE_SENTRY_STORE=0
+# Set CREATE_SENTRY_STORE=1 by default, as jira: SENTRY-935
+CREATE_SENTRY_STORE=1
 
 # parse command line options
 for ARG in $*
