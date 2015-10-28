@@ -435,7 +435,7 @@ public class CatalogServiceCatalog extends Catalog {
    * Adds a database name to the metadata cache and returns the database's
    * new Db object. Used by CREATE DATABASE statements.
    */
-  public Db addDb(String dbName) throws ImpalaException {
+  public Db addDb(String dbName) {
     Db newDb = new Db(dbName, this);
     newDb.setCatalogVersion(incrementAndGetCatalogVersion());
     addDb(newDb);

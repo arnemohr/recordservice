@@ -385,6 +385,9 @@ struct TCreateTableParams {
 
   // If set, the table will be cached after creation with details specified in cache_op.
   13: optional THdfsCachingOp cache_op
+
+  // If this is a RecordService create temp table request
+  14: optional bool is_record_service = false
 }
 
 // Parameters of a CREATE VIEW or ALTER VIEW AS SELECT command

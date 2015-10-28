@@ -141,9 +141,12 @@ public class JniFrontend {
       String authorizationPolicyFile, String sentryConfigFile,
       String authPolicyProviderClass, int impalaLogLevel, int otherLogLevel,
       boolean runningPlanner, boolean runningWorker,
-      int numMetadataLoadingThreads) throws InternalException {
+      int numMetadataLoadingThreads, String rsTmpDb) throws InternalException {
     runningPlanner_ = runningPlanner;
     runningWorker_ = runningWorker;
+
+    Preconditions.checkState(rsTmpDb != null && !rsTmpDb.isEmpty(),
+        "RecordService tmp database name is not allowed to be null or empty");
 
     GlogAppender.Install(TLogLevel.values()[impalaLogLevel],
         TLogLevel.values()[otherLogLevel]);
@@ -182,7 +185,7 @@ public class JniFrontend {
         // use the statestored to load metadata but goes directly to the other
         // services (HDFS, HMS, etc).
         RecordServiceCatalog catalog = new RecordServiceCatalog(
-            numMetadataLoadingThreads, sentryConfig, JniCatalog.generateId());
+            numMetadataLoadingThreads, rsTmpDb, sentryConfig, JniCatalog.generateId());
         frontend_ = new Frontend(authConfig, catalog);
       } else {
         // Just running worker, no need to start catalog.

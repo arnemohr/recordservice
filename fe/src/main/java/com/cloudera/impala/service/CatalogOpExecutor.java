@@ -66,10 +66,12 @@ import com.cloudera.impala.catalog.HiveStorageDescriptorFactory;
 import com.cloudera.impala.catalog.IncompleteTable;
 import com.cloudera.impala.catalog.MetaStoreClientPool.MetaStoreClient;
 import com.cloudera.impala.catalog.PartitionStatsUtil;
+import com.cloudera.impala.catalog.RecordServiceCatalog;
 import com.cloudera.impala.catalog.Role;
 import com.cloudera.impala.catalog.RolePrivilege;
 import com.cloudera.impala.catalog.RowFormat;
 import com.cloudera.impala.catalog.Table;
+import com.cloudera.impala.catalog.TableId;
 import com.cloudera.impala.catalog.TableLoadingException;
 import com.cloudera.impala.catalog.TableNotFoundException;
 import com.cloudera.impala.catalog.Type;
@@ -1093,7 +1095,14 @@ public class CatalogOpExecutor {
     org.apache.hadoop.hive.metastore.api.Table tbl =
         createMetaStoreTable(params);
     LOG.debug(String.format("Creating table %s", tableName));
-    return createTable(tbl, params.if_not_exists, params.getCache_op(), response);
+    if (params.is_record_service) {
+      // For RecordService path request, it will first create a temp table and then
+      // immediately query it. The table is no longer needed afterwards. For this type
+      // of request, it is not necessary to create the table in Hive Metastore.
+      return createTable(tbl, response);
+    } else {
+      return createTable(tbl, params.if_not_exists, params.getCache_op(), response);
+    }
   }
 
   /**
@@ -1185,6 +1194,38 @@ public class CatalogOpExecutor {
     tbl.putToParameters(StatsSetupConst.ROW_COUNT, "-1");
     LOG.debug(String.format("Creating table %s LIKE %s", tblName, srcTblName));
     createTable(tbl, params.if_not_exists, null, response);
+  }
+
+  /**
+   * Creates a temp table in the temp db. This bypasses Hive Metastore, and creates
+   * the table only in memory cache.
+   * This method is only supposed to be called for RecordService path request.
+   */
+  private boolean createTable(org.apache.hadoop.hive.metastore.api.Table newTable,
+      TDdlExecResponse response) throws ImpalaException {
+    Preconditions.checkState(catalog_ instanceof RecordServiceCatalog,
+        "Expected RecordServiceCatalog but found '" +
+        catalog_.getClass().getName() + "'");
+
+    // Create a HdfsTable from the msTable.
+    Table table = HdfsTable.fromMetastoreTable(
+        TableId.createInvalidId(), catalog_.getDb(newTable.getDbName()), newTable);
+    Preconditions.checkState(table instanceof HdfsTable,
+        "Expected HdfsTable but found '" + table.getClass().getName() + "'");
+    HdfsTable hdfsTable = (HdfsTable) table;
+
+    // Set up metadata for the hdfs table
+    hdfsTable.populateMetadata(newTable);
+
+    // Drop and (re)create the table in the temp db.
+    catalog_.getDb(newTable.getDbName()).removeTable(newTable.getTableName());
+    catalog_.getDb(newTable.getDbName()).addTable(table);
+
+    response.result.setUpdated_catalog_object(TableToTCatalogObject(table));
+    response.result.setVersion(
+      response.result.getUpdated_catalog_object().getCatalog_version());
+
+    return true;
   }
 
   /**

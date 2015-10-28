@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/unordered_set.hpp>
 #include <thrift/protocol/TDebugProtocol.h>
@@ -46,6 +47,7 @@
 
 #include "common/names.h"
 
+using boost::algorithm::replace_all_copy;
 using namespace strings;
 using namespace beeswax; // Converting QueryState
 using namespace apache::thrift;
@@ -71,6 +73,11 @@ DEFINE_int64(max_task_size, 2 * 1024L * 1024L * 1024L,
 // This also should vary depending on the task launch overhead.
 DEFINE_int32(tasks_per_core, 10, "Number of tasks to generate per core.");
 
+DEFINE_string(rs_tmp_db, "rs_tmp_db",
+    "A database used for temporary tables created for path requests. This database "
+    "is only created inside memory and doesn't reside on Hive Metastore."
+    "This shouldn't collide with other databases defined in Hive Metastore.");
+
 // This value has a big impact on performance. For simple queries (1 bigint col),
 // 5000 is a 2x improvement over a fetch size of 1024.
 // TODO: investigate more
@@ -78,7 +85,6 @@ static const int DEFAULT_FETCH_SIZE = 5000;
 
 // Names of temporary tables used to service path based requests.
 // FIXME: everything about temp tables is a hack.
-static const char* TEMP_DB = "rs_tmp_db";
 static const char* TEMP_TBL = "tmp_tbl";
 
 // Byte size of hadoop file headers.
@@ -1661,7 +1667,13 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
   RETURN_IF_ERROR(
       DetermineFileFormat(fs, path, path_filter->get(), format, &first_file));
 
-  *table_name = string(TEMP_DB) + "." + string(TEMP_TBL);
+  // Each planner maintains a separate tmp table which is identified by the
+  // IP address followed by process ID, to avoid collision.
+  stringstream ss;
+  ss << FLAGS_rs_tmp_db << "." << string(TEMP_TBL) << "_"
+     << replace_all_copy(resolved_localhost_ip_, ".", "_")
+     << "_" << getpid();
+  *table_name = ss.str();
   string create_tbl_stmt("CREATE EXTERNAL TABLE " + *table_name);
 
   // Append the schema to the create statement.
@@ -1726,10 +1738,8 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
   }
   create_tbl_stmt += " LOCATION \"" + path + "\"";
 
-  // For now, we'll just always use one temp table.
+  // For now, we'll use one temp table for each planner
   string commands[] = {
-    "DROP TABLE IF EXISTS " + *table_name,
-    "CREATE DATABASE IF NOT EXISTS " + string(TEMP_DB),
     create_tbl_stmt
   };
 
@@ -1750,6 +1760,7 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
   int num_commands = sizeof(commands) / sizeof(commands[0]);
   for (int i = 0; i < num_commands; ++i) {
     TQueryCtx query_ctx;
+    query_ctx.is_record_service_request = true;
     query_ctx.request.stmt = commands[i];
     query_ctx.session.connected_user = session_state->connected_user;
 
