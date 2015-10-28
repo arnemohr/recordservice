@@ -859,6 +859,53 @@ public class HdfsTable extends Table {
     partitions_.add(partition);
   }
 
+  /**
+   * Populate metadata for this HdfsTable. This is similar to load() below but without
+   * interacting with the HMS client. In case the table is partitioned, it doesn't load
+   * partitions - partitions are handled when "ALTER TABLE ADD PARTITION ..." request
+   * is processed.
+   * This method is only supposed to be called for RecordService path request.
+   */
+  public void populateMetadata(org.apache.hadoop.hive.metastore.api.Table msTbl)
+    throws TableLoadingException {
+    numHdfsFiles_ = 0;
+    totalHdfsBytes_ = 0;
+    LOG.debug("populate metadata for: " + getFullName());
+
+    // Set nullPartitionKeyValue from the hive conf.
+    // For RecordService tmp table this is not used, since on the server side it
+    // only loads partitions with non-NULL values.
+    // TODO: think about how to handle default partitions on server side.
+    nullPartitionKeyValue_ = "__HIVE_DEFAULT_PARTITION__";
+
+    // Set NULL indicator string from table properties
+    nullColumnValue_ =
+        msTbl.getParameters().get(serdeConstants.SERIALIZATION_NULL_FORMAT);
+    if (nullColumnValue_ == null) nullColumnValue_ = DEFAULT_NULL_COLUMN_VALUE;
+
+    try {
+      loadFieldSchemas(msTbl);
+
+      // Add all columns to the table. Ordering is important: partition columns first,
+      // then all other columns.
+      addColumnsFromFieldSchemas(msTbl.getPartitionKeys());
+      addColumnsFromFieldSchemas(nonPartFieldSchemas_);
+
+      // If there is no partition for this table, add a default partition
+      // which include all the files under the base dir.
+      if (msTbl.getPartitionKeys().isEmpty()) {
+        List<org.apache.hadoop.hive.metastore.api.Partition> msPartitions =
+            Lists.newArrayList();
+        loadPartitions(msPartitions, msTbl, null);
+      }
+    } catch (TableLoadingException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new TableLoadingException(
+        "Failed to load metadata for table: " + getFullName(), e);
+    }
+  }
+
   @Override
   /**
    * Load the table metadata and reuse metadata to speed up metadata loading.
@@ -985,8 +1032,7 @@ public class HdfsTable extends Table {
    * Populates nonPartFieldSchemas_ from msTbl.
    */
   private void loadFieldSchemas(
-      org.apache.hadoop.hive.metastore.api.Table msTbl) throws ConfigValSecurityException,
-      TException, TableLoadingException {
+      org.apache.hadoop.hive.metastore.api.Table msTbl) throws TableLoadingException {
     List<FieldSchema> msColDefs = msTbl.getSd().getCols();
     String inputFormat = msTbl.getSd().getInputFormat();
     if (HdfsFileFormat.fromJavaClassName(inputFormat) == HdfsFileFormat.AVRO) {

@@ -768,7 +768,6 @@ public class Frontend {
     AnalysisContext analysisCtx = new AnalysisContext(impaladCatalog_, queryCtx,
         authzConfig_);
     LOG.debug("analyze query " + queryCtx.request.stmt);
-
     // Run analysis in a loop until it any of the following events occur:
     // 1) Analysis completes successfully.
     // 2) Analysis fails with an AnalysisException AND there are no missing tables.
@@ -890,6 +889,15 @@ public class Frontend {
       if (jsonLineageGraph != null && !jsonLineageGraph.isEmpty()) {
         result.catalog_op_request.setLineage_graph(jsonLineageGraph);
       }
+
+      // For RecordService, this is creating a temp table for path request.
+      // We pass down the flag to CreateTableParams, which will use it to
+      // bypass Hive Metastore and create the table in memory only.
+      if (queryCtx.is_record_service_request && analysisResult.isCreateTableStmt()) {
+        result.catalog_op_request.ddl_params.
+            create_table_params.setIs_record_service(true);
+      }
+
       // All DDL operations except for CTAS are done with analysis at this point.
       if (!analysisResult.isCreateTableAsSelectStmt()) return result;
     } else if (analysisResult.isLoadDataStmt()) {

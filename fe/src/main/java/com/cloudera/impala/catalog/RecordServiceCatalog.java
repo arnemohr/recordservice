@@ -31,28 +31,47 @@ import com.google.common.base.Preconditions;
 /**
  * Catalog for recordservice. RecordserviceCatalog only uses metadata cache in getDb()
  * for buildinsDb_, and always reloads table metadata for each getTable request.
+ * It also maintains a in memory db for tmp tables from path requests. The db and
+ * the tmp tables do not exist in HMS.
  * TODO: Update dbCache_ with per query snapshot in a proper way.
  * TODO: Update authorization policy from Sentry.
  */
 public class RecordServiceCatalog extends CatalogServiceCatalog{
   private static final Logger LOG = Logger.getLogger(RecordServiceCatalog.class);
 
-  public RecordServiceCatalog(
-      int numLoadingThreads, SentryConfig sentryConfig, TUniqueId catalogServiceId) {
+  // The database used for temporary tables used for RecordService path request.
+  private final String rsTmpDb_;
+
+  public RecordServiceCatalog(int numLoadingThreads, String rsTmpDb,
+      SentryConfig sentryConfig, TUniqueId catalogServiceId) {
     super(false, numLoadingThreads, sentryConfig, catalogServiceId);
+    rsTmpDb_ = rsTmpDb;
+    addDb(rsTmpDb_);
   }
 
   /**
-   * Returns the Table object for the given dbName/tableName. Returns null
-   * if the table does not exist. Throws a TableLoadingException if the table's
-   * metadata was not able to be loaded successfully and DatabaseNotFoundException
-   * if the parent database does not exist.
+   * Returns the Table object for the given dbName/tableName. If the dbName matches
+   * the in memory db used to store the tmp tables for path requests, this
+   * will skip the HMS and fetch the table from the db instead. Otherwise, it goes
+   * to the HMS and load the table.
+   * Returns null if the table does not exist. Throws a TableLoadingException if the
+   * table's metadata was not able to be loaded successfully and
+   * DatabaseNotFoundException if the parent database does not exist.
    * Unlike CatalogServiceCatalog or ImpaladCatalog, it never uses cache, but reloads
    * the table for each query.
    */
   @Override
   public Table getTable(String dbName, String tableName) throws CatalogException {
-    Table table = null;
+    Table table;
+    if (rsTmpDb_.equals(dbName)) {
+      // This is a tmp table request. Return the table in the tmp db.
+      table = getDb(dbName).getTable(tableName);
+      if (table == null) {
+        throw new TableLoadingException("Failed to load temp table '" + tableName + "'");
+      }
+      return table;
+    }
+
     MetaStoreClient msClient = getMetaStoreClient();
     // Return null if table does not exists in metadata.
     try {

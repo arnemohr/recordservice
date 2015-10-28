@@ -33,6 +33,7 @@ DECLARE_int32(non_impala_java_vlog);
 DECLARE_int32(recordservice_planner_port);
 DECLARE_int32(recordservice_worker_port);
 DECLARE_int32(num_metadata_loading_threads);
+DECLARE_string(rs_tmp_db);
 
 DEFINE_bool(load_catalog_at_startup, false, "if true, load all catalog data at startup");
 DECLARE_bool(load_catalog_in_background);
@@ -65,7 +66,7 @@ DEFINE_string(authorized_proxy_user_config_delimiter, ",",
 Frontend::Frontend(bool running_planner, bool running_worker) {
   JniMethodDescriptor methods[] = {
     {"<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;"
-        "Ljava/lang/String;IIZZI)V", &fe_ctor_},
+        "Ljava/lang/String;IIZZILjava/lang/String;)V", &fe_ctor_},
     {"initZooKeeper", "(Ljava/lang/String;Z)V", &init_zookeeper_id_},
     {"createExecRequest", "([B)[B", &create_exec_request_id_},
     {"createRecordServiceExecRequest", "([B)[B", &create_rs_exec_request_id_},
@@ -122,12 +123,13 @@ Frontend::Frontend(bool running_planner, bool running_worker) {
       jni_env->NewStringUTF(FLAGS_sentry_config.c_str());
   jstring auth_provider_class =
       jni_env->NewStringUTF(FLAGS_authorization_policy_provider_class.c_str());
+  jstring rs_tmp_db =
+      jni_env->NewStringUTF(FLAGS_rs_tmp_db.c_str());
 
   jobject fe = jni_env->NewObject(fe_class_, fe_ctor_, load_catalog_in_background,
       server_name, policy_file_path, sentry_config, auth_provider_class,
       FlagToTLogLevel(FLAGS_v), FlagToTLogLevel(FLAGS_non_impala_java_vlog),
-      running_planner, running_worker,
-      FLAGS_num_metadata_loading_threads);
+      running_planner, running_worker, FLAGS_num_metadata_loading_threads, rs_tmp_db);
 
   EXIT_IF_EXC(jni_env);
   EXIT_IF_ERROR(JniUtil::LocalToGlobalRef(jni_env, fe, &fe_));
