@@ -1654,19 +1654,22 @@ void ImpalaServer::UpdateRecordServiceMembership(const TMembershipUpdate& update
            recordservice_workers_host_to_ports_.begin();
        it != recordservice_workers_host_to_ports_.end(); ++it) {
     DCHECK(!it->second.empty());
-    recordservice::TNetworkAddress host;
-    host.hostname = it->first;
-    // TODO: should we pick a random instance? This is only used in test
-    // configurations so whatever makes testing better.
-    host.port = *it->second.begin();
-    if (host.hostname == "localhost") host.hostname = resolved_localhost_ip_;
-    known_recordservice_worker_addresses_.push_back(host);
+    // For each combination of hostname and port, add an host to the worker addresses.
+    for (unordered_set<int>::const_iterator sit = it->second.begin();
+         sit != it->second.end(); ++sit) {
+      recordservice::TNetworkAddress host;
+      host.hostname = it->first;
+      host.port = *sit;
+      if (host.hostname == "localhost") host.hostname = resolved_localhost_ip_;
+      known_recordservice_worker_addresses_.push_back(host);
+    }
   }
 }
 
 void ImpalaServer::ResolveRecordServiceWorkerPorts(vector<TNetworkAddress>* h) {
   vector<TNetworkAddress>& hosts = *h;
   shared_lock<shared_mutex> l(recordservice_membership_lock_);
+  unordered_map<string, unordered_set<int> > used_ports_map;
   for (int i = 0; i < hosts.size(); ++i) {
     unordered_map<string, unordered_set<int> >::iterator it =
         recordservice_workers_host_to_ports_.find(hosts[i].hdfs_host_name);
@@ -1674,9 +1677,27 @@ void ImpalaServer::ResolveRecordServiceWorkerPorts(vector<TNetworkAddress>* h) {
       hosts[i].port = -1;
     } else {
       DCHECK(!it->second.empty());
-      // TODO: should we pick a random instance? This is only used in test
-      // configurations so whatever makes testing better.
-      hosts[i].port = *it->second.begin();
+
+      // Populate this replica host with an available worker port on the host.
+      // In case there are multiple replicas on the host (which should only happen
+      // in a test environment), we pick a port that hasn't been used. Or, if all
+      // ports are used, pick a random one from all available ports on the host.
+      unordered_set<int>& ports = it->second;
+      unordered_set<int>::const_iterator ports_it = ports.begin();
+      unordered_set<int>& used_ports = used_ports_map[hosts[i].hdfs_host_name];
+
+      while (ports_it != ports.end() &&
+          used_ports.find(*ports_it) != used_ports.end()) ++ports_it;
+      if (ports_it == ports.end()) {
+        LOG(INFO) << "Have already used all worker ports for " << hosts[i].hostname
+                  << ", now picking a random one.";
+        ports_it = ports.begin();
+        advance(ports_it, rand() % ports.size());
+        hosts[i].port = *ports_it;
+      } else { // used_ports.find(*ports_it) == used_ports.end()
+        hosts[i].port = *ports_it;
+        used_ports.insert(*ports_it);
+      }
     }
     // Remap localhost -> resolved_localhost_ip_. This needs to be done
     // *after* the membership lookup.
