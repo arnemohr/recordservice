@@ -66,7 +66,6 @@ import com.google.common.collect.Sets;
 /**
  * Wrapper around curator to manage zookeeper sessions. This class also
  * handles membership.
- * TODO: maintain planner membership.
  */
 public class ZooKeeperSession implements Closeable {
   private static final Logger LOGGER =
@@ -112,8 +111,16 @@ public class ZooKeeperSession implements Closeable {
   // Current Zookeeper session.
   private volatile CuratorFramework zkSession_;
 
+  // Watcher for the planner membership znode.
+  private PathChildrenCache plannerMembership_;
+
   // Watcher of the worker membership znode.
   private PathChildrenCache workerMembership_;
+
+  // Planner membership. Only maintained for planners. (runningPlanner_ = true)
+  // Access to this needs to be thread safe. If this and zkSession_ need to be
+  // locked, lock zkSession_ first.
+  private final Set<String> planners_ = Sets.newHashSet();
 
   // Worker membership. Only maintained for planners. (runningPlanner_ = true)
   // Access to this needs to be thread safe. If this and zkSession_ need to be
@@ -190,6 +197,12 @@ public class ZooKeeperSession implements Closeable {
    * to remove this node from ZK more quickly (otherwise it will timeout eventually).
    */
   public void close() throws IOException {
+    if (plannerMembership_ != null) {
+      plannerMembership_.close();
+      synchronized (planners_) {
+        planners_.clear();
+      }
+    }
     if (workerMembership_ != null) {
       workerMembership_.close();
       synchronized (workers_) {
@@ -260,17 +273,27 @@ public class ZooKeeperSession implements Closeable {
   }
 
   /**
-   * Returns the set of workers. Only callable for planner services.
+   * Returns the set of planner or workers, depending on whether 'planner' is true
+   * or false. Only callable for planner services.
    */
-  public Set<String> getWorkerMembership() {
+  public Set<String> getMembership(boolean planner) {
     if (!runningPlanner_) {
       // TODO: we can either always listen to the membership or just get the list on
       // demand for worker-only services. Currently, there is no use case for this.
       throw new IllegalStateException("Can only call when running planner.");
     }
-    synchronized (workers_) {
-      return ImmutableSet.copyOf(workers_);
+    Set<String> members = planner ? planners_ : workers_;
+    synchronized (members) {
+      return ImmutableSet.copyOf(members);
     }
+  }
+
+  /**
+   * Returns the size for planners or workers, depending on whether 'planner' is
+   * true or false.
+   */
+  public int getMembershipSize(boolean planner) {
+    return planner ? planners_.size() : workers_.size();
   }
 
   /**
@@ -334,31 +357,33 @@ public class ZooKeeperSession implements Closeable {
   }
 
   /**
-   * Updates the worker membership, including calling into the BE.
+   * Updates the worker or planner membership, including calling into the BE.
    */
-  private void updateWorkerMembership(TMembershipUpdateType type, String member)
-      throws InternalException {
-    synchronized (workers_) {
+  private void updateMembership(TMembershipUpdateType type,
+      String member, boolean planner) throws InternalException {
+    PathChildrenCache membership = planner ? plannerMembership_ : workerMembership_;
+    Set<String> members = planner ? planners_ : workers_;
+    synchronized (members) {
       TMembershipUpdate update =
-          new TMembershipUpdate(false, type, new ArrayList<String>());
+          new TMembershipUpdate(planner, type, new ArrayList<String>());
       switch (type) {
       case ADD:
         Preconditions.checkNotNull(member);
-        workers_.add(member);
+        members.add(member);
         update.membership.add(member);
         break;
       case REMOVE:
         Preconditions.checkNotNull(member);
-        workers_.remove(member);
+        members.remove(member);
         update.membership.add(member);
         break;
       case FULL_LIST:
         Preconditions.checkState(member == null);
-        workers_.clear();
-        for (ChildData d: workerMembership_.getCurrentData()) {
-          workers_.add(d.getPath());
+        members.clear();
+        for (ChildData d: membership.getCurrentData()) {
+          members.add(d.getPath());
         }
-        update.membership.addAll(workers_);
+        update.membership.addAll(members);
         break;
       default:
         Preconditions.checkState(false);
@@ -375,48 +400,9 @@ public class ZooKeeperSession implements Closeable {
   private void registerMembership(CuratorFramework zk, boolean planner)
       throws IOException {
     if (planner) {
-      synchronized (zkSession_) {
-        if (workerMembership_ != null) workerMembership_.close();
-        // This is the planner meaning we also want to listen to the worker membership.
-        workerMembership_ =
-            new PathChildrenCache(zk, getRelativePath(WORKER_MEMBERSHIP_ZNODE), true);
-        try {
-          Preconditions.checkState(workers_.isEmpty());
-          workerMembership_.start(StartMode.BUILD_INITIAL_CACHE);
-          updateWorkerMembership(TMembershipUpdateType.FULL_LIST, null);
-        } catch (Exception e) {
-          throw new IOException("Could not watch worker membership.", e);
-        }
-      }
-
-      // Add a listener to the worker directory for updates.
-      workerMembership_.getListenable().addListener(new PathChildrenCacheListener() {
-        @Override
-        public void childEvent(CuratorFramework zk, PathChildrenCacheEvent arg)
-            throws Exception {
-          synchronized (zkSession_) {
-            // This session is no longer the active one, ignore this update.
-            if (zk != zkSession_) return;
-            switch (arg.getType()) {
-              case CHILD_ADDED:
-                updateWorkerMembership(
-                    TMembershipUpdateType.ADD, arg.getData().getPath());
-                break;
-              case CHILD_REMOVED:
-                updateWorkerMembership(
-                    TMembershipUpdateType.REMOVE, arg.getData().getPath());
-                break;
-
-              case INITIALIZED:
-              default:
-                // TODO: what do the other types mean? Should be safe to just
-                // reconstruct.
-                updateWorkerMembership(TMembershipUpdateType.FULL_LIST, null);
-                break;
-            }
-          }
-        }
-      });
+      // This is the planner meaning we also want to listen to the membership.
+      initMembership(zk, true);
+      initMembership(zk, false);
     }
 
     String path = getRelativePath(
@@ -433,6 +419,63 @@ public class ZooKeeperSession implements Closeable {
     } catch (Exception e) {
       throw new IOException("Could not create znode at " + path, e);
     }
+  }
+
+  /**
+   * Initiate membership for planner or worker, depending on whether 'planner' is
+   * true or false. This reconstruct the membership information based on the current
+   * state, and add listener for future membership updates.
+   */
+  private void initMembership(CuratorFramework zk, final boolean planner)
+      throws IOException {
+    PathChildrenCache membership = planner ? plannerMembership_ : workerMembership_;
+    Set<String> members = planner ? planners_ : workers_;
+    String znode = planner ? PLANNER_MEMBERSHIP_ZNODE : WORKER_MEMBERSHIP_ZNODE;
+    synchronized (zkSession_) {
+      if (membership != null) membership.close();
+      membership = new PathChildrenCache(zk, getRelativePath(znode), true);
+      if (planner) plannerMembership_ = membership;
+      else workerMembership_ = membership;
+      try {
+        Preconditions.checkState(members.isEmpty());
+        membership.start(StartMode.BUILD_INITIAL_CACHE);
+        updateMembership(TMembershipUpdateType.FULL_LIST, null, planner);
+      } catch (Exception e) {
+        throw new IOException(
+          "Could not watch " + (planner ? "planner" : "worker") + " membership.", e);
+      }
+    }
+
+    // Add a listener to the worker or planner directory for updates.
+    membership.getListenable().addListener(new PathChildrenCacheListener() {
+        @Override
+        public void childEvent(CuratorFramework zk, PathChildrenCacheEvent arg)
+          throws Exception {
+          synchronized (zkSession_) {
+            // This session is no longer the active one, ignore this update.
+            if (zk != zkSession_) return;
+            switch (arg.getType()) {
+            case CHILD_ADDED:
+              updateMembership(
+                TMembershipUpdateType.ADD, arg.getData().getPath(), planner);
+              break;
+            case CHILD_REMOVED:
+              updateMembership(
+                TMembershipUpdateType.REMOVE, arg.getData().getPath(), planner);
+              break;
+
+            case INITIALIZED:
+            default:
+              // TODO: what do the other types mean? Should be safe to just
+              // reconstruct.
+              LOGGER.info("Found unexpected event type {}. Reconstruct the membership.",
+                  arg.getType());
+              updateMembership(TMembershipUpdateType.FULL_LIST, null, planner);
+              break;
+            }
+          }
+        }
+      });
   }
 
   /**
