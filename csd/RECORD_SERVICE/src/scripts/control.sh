@@ -35,6 +35,29 @@ add_to_hdfs_site() {
   echo ${CONF_END} >> ${FILE}
 }
 
+check_exist_wildcard() {
+  if [ "$(echo $1)" != "$1" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Check if DIGEST-MD5 is installed when Kerberos is enabled
+# TODO: user may install this at some unconventional place and set it via
+# the flag 'sasl_path'. We should handle this.
+check_digest_md5() {
+  if env | grep -q ^RECORD_SERVICE_PRINCIPAL=; then
+    if ! check_exist_wildcard "/usr/lib/sasl2/libdigestmd5*" && \
+       ! check_exist_wildcard "/usr/lib64/sasl2/libdigestmd5*" && \
+       ! check_exist_wildcard "/usr/local/lib/sasl2/libdigestmd5*" && \
+       ! check_exist_wildcard "/usr/lib/x86_64-linux-gnu/sasl2/libdigestmd5*"; then
+      log "Kerberos is enabled but couldn't find DIGEST-MD5 library on the system"
+      exit 1
+    fi
+  fi
+}
+
 # RECORDSERVICE_HOME is provided in the recordservice parcel's env script.
 RECORD_SERVICE_BIN_HOME=${RECORDSERVICE_HOME}/../../bin
 log "RECORD_SERVICE_BIN_HOME: ${RECORD_SERVICE_BIN_HOME}"
@@ -166,6 +189,7 @@ fi
 case ${CMD} in
   (start_planner_worker)
     log "Starting recordserviced running planner and worker services"
+    check_digest_md5
     exec ${RECORD_SERVICE_BIN_HOME}/recordserviced ${ARGS} \
       -recordservice_planner_port=${PLANNER_PORT} \
       -recordservice_worker_port=${WORKER_PORT}
@@ -173,6 +197,7 @@ case ${CMD} in
 
   (start_planner)
     log "Starting recordserviced running planner service"
+    check_digest_md5
     exec ${RECORD_SERVICE_BIN_HOME}/recordserviced ${ARGS} \
       -recordservice_planner_port=${PLANNER_PORT} \
       -recordservice_worker_port=0
@@ -180,6 +205,7 @@ case ${CMD} in
 
   (start_worker)
     log "Starting recordserviced running worker service"
+    check_digest_md5
     exec ${RECORD_SERVICE_BIN_HOME}/recordserviced ${ARGS} \
       -recordservice_planner_port=0 \
       -recordservice_worker_port=${WORKER_PORT}
