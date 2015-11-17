@@ -981,7 +981,8 @@ public class HdfsTable extends Table {
       if (!partNames.isEmpty()) {
         if (enableMultithreadedMetadataLoading_) {
           msPartitions.addAll(MetaStoreUtil.fetchPartitionsByName(
-              pool, Lists.newArrayList(partNames), db_.getName(), name_));
+              pool, Lists.newArrayList(partNames), db_.getName(), name_,
+              NUM_PARTITION_FETCH_RETRIES));
         } else {
           msPartitions.addAll(MetaStoreUtil.fetchPartitionsByName(
               client, Lists.newArrayList(partNames), db_.getName(), name_,
