@@ -132,12 +132,15 @@ public class MetaStoreUtil {
       }
     }
   }
+
   /**
-   * Multithreaded version of fetchPartitionsByName.
+   * MultiThreaded version of fetchPartitionsByName.
+   * For each partition fetch job, it will retry at most 'numRetries' times when there is
+   * MetaException.
    */
   public static List<org.apache.hadoop.hive.metastore.api.Partition>
       fetchPartitionsByName(final MetaStoreClientPool pool, final List<String> partNames,
-      final String dbName, final String tblName) throws TException {
+      final String dbName, final String tblName, final int numRetries) throws TException {
     List<Future<List<Partition>>> loadRequests = Lists.newArrayList();
 
     // Issue all the requests to the thread pool.
@@ -148,10 +151,10 @@ public class MetaStoreUtil {
         new Callable<List<Partition>>() {
           public List<Partition> call() throws Exception {
             MetaStoreClient client = pool.getClient();
+            List<String> partsToFetch = partNames.subList(startIdx, startIdx + n);
             try {
-              List<String> partsToFetch = partNames.subList(startIdx, startIdx + n);
               return MetaStoreUtil.fetchPartitionsByName(
-                  client.getHiveClient(), partsToFetch, dbName, tblName);
+                  client.getHiveClient(), partsToFetch, dbName, tblName, numRetries);
             } finally {
               client.release();
             }
