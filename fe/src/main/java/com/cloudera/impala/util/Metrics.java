@@ -56,21 +56,12 @@ public enum Metrics {
 
   // Container for all metrics.
   private final MetricRegistry metricRegistry_;
-  // Report to the console.
-  private final ConsoleReporter consoleReporter_;
   // Report to JMX MBeans.
   private final JmxReporter jmxReporter_;
   public final static int NANOTOMILLISEC = 1000000;
 
   Metrics() {
     metricRegistry_ = new MetricRegistry();
-    // Start a console reporter.
-    consoleReporter_ = ConsoleReporter.forRegistry(metricRegistry_)
-        .convertRatesTo(TimeUnit.SECONDS)
-        .convertDurationsTo(TimeUnit.MILLISECONDS)
-        .build();
-    // Print report every hour.
-    consoleReporter_.start(1, TimeUnit.HOURS);
     // Start a JMX reporter.
     jmxReporter_ = JmxReporter.forRegistry(metricRegistry_)
         .convertRatesTo(TimeUnit.SECONDS)
