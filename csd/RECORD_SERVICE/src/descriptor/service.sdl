@@ -152,8 +152,8 @@
       "default" : ""
     },
     {
-      "name" : "advanced_config",
-      "label" : "Advanced Configuration",
+      "name" : "advanced_config_safety_valve",
+      "label" : "Advanced Configuration Snippet (Safety Valve)",
       "description" : "Any configs added here will be overridden by their default values. This should be specified as --{key}={value}, separated by spaces.",
       "type" : "string",
       "default" : ""
@@ -204,7 +204,7 @@
           "V" : "${v}",
           "MEM_LIMIT" : "${mem_limit}G",
           "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
-          "ADVANCED_CONFIG" : "${advanced_config}",
+          "ADVANCED_CONFIG" : "${advanced_config_safety_valve}",
           "DEBUG" : "${debug}"
         }
       },
@@ -258,7 +258,7 @@
           "V" : "${v}",
           "MEM_LIMIT" : "${mem_limit}G",
           "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
-          "ADVANCED_CONFIG" : "${advanced_config}",
+          "ADVANCED_CONFIG" : "${advanced_config_safety_valve}",
           "DEBUG" : "${debug}"
         }
       },
@@ -315,7 +315,7 @@
           "V" : "${v}",
           "MEM_LIMIT" : "${mem_limit}G",
           "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
-          "ADVANCED_CONFIG" : "${advanced_config}",
+          "ADVANCED_CONFIG" : "${advanced_config_safety_valve}",
           "DEBUG" : "${debug}"
         }
       },
