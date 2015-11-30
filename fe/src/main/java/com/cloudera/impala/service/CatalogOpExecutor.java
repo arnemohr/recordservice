@@ -720,7 +720,10 @@ public class CatalogOpExecutor {
       throw new CatalogException("Function " + fn.signatureString() +
           " already exists.");
     }
-    catalog_.addFunction(fn);
+    if (catalog_.addFunction(fn)) {
+      // Flush DB changes to metastore
+      applyAlterDatabase(catalog_.getDb(fn.dbName()));
+    }
     TCatalogObject addedObject = new TCatalogObject();
     addedObject.setType(TCatalogObjectType.FUNCTION);
     addedObject.setFn(fn.toThrift());
@@ -1075,6 +1078,8 @@ public class CatalogOpExecutor {
       // return the current catalog version.
       resp.result.setVersion(catalog_.getCatalogVersion());
     } else {
+      // Flush DB changes to metastore
+      applyAlterDatabase(catalog_.getDb(fn.dbName()));
       TCatalogObject removedObject = new TCatalogObject();
       removedObject.setType(TCatalogObjectType.FUNCTION);
       removedObject.setFn(fn.toThrift());
@@ -2023,6 +2028,24 @@ public class CatalogOpExecutor {
     partition.setSd(sd);
 
     return partition;
+  }
+
+  /**
+   * Updates the database object in the metastore.
+   */
+  private void applyAlterDatabase(Db db)
+      throws ImpalaRuntimeException {
+    synchronized (metastoreDdlLock_) {
+      MetaStoreClient msClient = catalog_.getMetaStoreClient();
+      try {
+        msClient.getHiveClient().alterDatabase(db.getName(), db.getMetaStoreDb());
+      } catch (TException e) {
+        throw new ImpalaRuntimeException(
+            String.format(HMS_RPC_ERROR_FORMAT_STR, "alterDatabase"), e);
+      } finally {
+        msClient.release();
+      }
+    }
   }
 
   /**
