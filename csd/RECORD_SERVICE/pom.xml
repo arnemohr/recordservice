@@ -6,7 +6,7 @@
   <groupId>com.cloudera.csd</groupId>
   <artifactId>RECORD_SERVICE</artifactId>
   <packaging>pom</packaging>
-  <version>1.0</version>
+  <version>0.2.0</version>
   <name>The RecordService CSD</name>
 
   <repositories>

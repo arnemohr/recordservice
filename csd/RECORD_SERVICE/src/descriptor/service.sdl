@@ -17,7 +17,7 @@
   "name" : "RECORD_SERVICE",
   "label" : "RecordService (Beta)",
   "description" : "RecordService is a secure data access service for reading structured data.",
-  "version" : "0.1.0",
+  "version" : "0.2.0",
   "compatibility" : {
     "cdhVersion" : {
       "min" : "5",
