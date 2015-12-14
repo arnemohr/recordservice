@@ -41,6 +41,7 @@ PW_FILE="${RECORDSERVICE_CONF_DIR}/${PW_CONF_FILE}"
 log "PW_FILE: ${PW_FILE}"
 SPARK_FILE="${RECORDSERVICE_CONF_DIR}/${SPARK_CONF_FILE}"
 log "SPARK_FILE: ${SPARK_FILE}"
+log "HDFS_CONFIG: ${HDFS_CONFIG}"
 
 # As CM only copies $RECORDSERVICE_CONF_DIR to /etc/recordservice/conf.cloudera.record_service,
 # we should also copy YARN / HADOOP conf into RECORDSERVICE_CONF_DIR.
@@ -107,6 +108,20 @@ add_to_hdfs_site() {
   echo ${CONF_END} >> ${FILE}
 }
 
+# Append to hdfs-site.xml if HDFS_CONFIG is not empty.
+append_to_hdfs_site() {
+  if [[ -n ${HDFS_CONFIG} ]]; then
+    FILE=`find ${RECORDSERVICE_CONF_DIR} -name hdfs-site.xml`
+    CONF_END="</configuration>"
+    TMP_FILE="${CONF_DIR}/tmp-hdfs-site"
+    cat ${FILE} | sed "s#${CONF_END}#${HDFS_CONFIG}#g" > ${TMP_FILE}
+    cp ${TMP_FILE} ${FILE}
+    rm -f ${TMP_FILE}
+    echo ${CONF_END} >> ${FILE}
+  fi
+}
+
+
 CONF_KEY=recordservice.planner.hostports
 CONF_VALUE=
 copy_planner_hostports_from_file() {
@@ -137,8 +152,8 @@ case $CMD in
       CONF_VALUE=${CONF_VALUE:1}
       add_to_recordservice_conf ${CONF_KEY} ${CONF_VALUE}
       add_to_spark_conf ${CONF_KEY} ${CONF_VALUE}
-      # The HDFS default has the wrong units so configure this.
-      add_to_hdfs_site dfs.client.file-block-storage-locations.timeout.millis 5000000
+      # Append HDFS_CONFIG to hdfs-site.xml.
+      append_to_hdfs_site
       # Add zk quorum to hdfs-site.xml
       add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
       # FIXME this is not secure.

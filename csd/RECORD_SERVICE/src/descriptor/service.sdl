@@ -159,6 +159,13 @@
       "default" : ""
     },
     {
+      "name" : "hdfs_advanced_config_safety_valve",
+      "label" : "HDFS Advanced Configuration Snippet (Safety Valve)",
+      "description" : "For advanced use only, a string to be inserted into hdfs-site.xml.",
+      "type" : "string",
+      "default" : "<property><name>dfs.client.file-block-storage-locations.timeout.millis</name><value>10000</value></property>"
+    },
+    {
       "name" : "debug",
       "label" : "Run Debug Binaries",
       "description" : "If true, run debug binaries.",
@@ -205,6 +212,7 @@
           "MEM_LIMIT" : "${mem_limit}G",
           "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
           "ADVANCED_CONFIG" : "${advanced_config_safety_valve}",
+          "HDFS_CONFIG" : "${hdfs_advanced_config_safety_valve}",
           "DEBUG" : "${debug}"
         }
       },
@@ -259,6 +267,7 @@
           "MEM_LIMIT" : "${mem_limit}G",
           "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
           "ADVANCED_CONFIG" : "${advanced_config_safety_valve}",
+          "HDFS_CONFIG" : "${hdfs_advanced_config_safety_valve}",
           "DEBUG" : "${debug}"
         }
       },
@@ -316,6 +325,7 @@
           "MEM_LIMIT" : "${mem_limit}G",
           "SENTRY_CONFIG" : "${sentry_config_safety_valve}",
           "ADVANCED_CONFIG" : "${advanced_config_safety_valve}",
+          "HDFS_CONFIG" : "${hdfs_advanced_config_safety_valve}",
           "DEBUG" : "${debug}"
         }
       },
@@ -355,7 +365,8 @@
         "PLANNER_CONF_FILE" : "planner.properties",
         "PW_CONF_FILE" : "pw.properties",
         "RECORDSERVICE_CONF_FILE" : "recordservice-site.xml",
-        "SPARK_CONF_FILE" : "spark.conf"
+        "SPARK_CONF_FILE" : "spark.conf",
+        "HDFS_CONFIG" : "${hdfs_advanced_config_safety_valve}"
       }
     },
     "parameters" : [
