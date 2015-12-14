@@ -110,9 +110,19 @@ log "minidump_directory: ${MINIDUMP_DIRECTORY}"
 log "mem_limit: ${MEM_LIMIT}"
 log "sentry_config: ${SENTRY_CONFIG}"
 log "advanced_config: ${ADVANCED_CONFIG}"
+log "hdfs_config: ${HDFS_CONFIG}"
 
-# The HDFS default has the wrong units so configure this.
-add_to_hdfs_site dfs.client.file-block-storage-locations.timeout.millis 5000000
+# Append to hdfs-site.xml if HDFS_CONFIG is not empty.
+if [[ -n ${HDFS_CONFIG} ]]; then
+  FILE=`find ${HADOOP_CONF_DIR} -name hdfs-site.xml`
+  CONF_END="</configuration>"
+  TMP_FILE="${CONF_DIR}/tmp-hdfs-site"
+  cat ${FILE} | sed "s#${CONF_END}#${HDFS_CONFIG}#g" > ${TMP_FILE}
+  cp ${TMP_FILE} ${FILE}
+  rm -f ${TMP_FILE}
+  echo ${CONF_END} >> ${FILE}
+fi
+
 # Add zk quorum to hdfs-site.xml
 add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
 # FIXME this is not secure.
