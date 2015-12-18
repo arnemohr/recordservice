@@ -6,9 +6,9 @@ To build this repo:
   - Make sure RECORD_SERVICE_HOME is set to the home of that repo.
   - Follow the normal Impala build instructions.
 
-Last rebase: 9/20/2015 
-  IMPALA-2358: Fix join ordering of relative collection table re
-  0ca2cf51e37a4d834d7496f105459fb5ea8add78
+Last rebase: 10/26/2015
+  Update 5.5.0 thirdparty deps to latest 2015-10-26
+  0c891d79aa38f297d244855a32f1e17280e2129b
 
 Skipped:
 Add option in generate_metrics.py to output CM mdl
@@ -25,11 +25,6 @@ Python Virtual Env
 Python: Add thrift_sasl to virtualenv
 060561d061cb98d01089cb7979e3132f60ca3121
 
-Fix avro schema handling in FE (too many conflicts)
-af46f26e130f4bb73214d1b40d5779c661535fec
-IMPALA-2042: Added validation for avro.schema.literal/url.
-7d2056814aff9eebfbfca8a8e4048646ab3f9972
-
 IMPALA-2251: disallow clashing text delimiters
 cc7246b0ef2a760fffef1a1c378d350d6d37b5e3
 IMPALA-2257: fix broken build caused by IMPALA-2251 fix
@@ -45,4 +40,28 @@ IMPALA-1136, IMPALA-2161: Skip \u0000 characters when dealing Avro (Need toolcha
 
 CDH-30961: Allow Thrift to accept TLSv1.1 and v1.2 (Need toolchain update).
 fc2c96feb49e10af0a9ae8098f0acea7b64b063e
+
+IMPALA-2474: update file sizes in planner tests (PlannerTest related)
+54409d82a42623e156cd775810b9a76fc5ae7407
+Revert "IMPALA-2474: update file sizes in planner tests"
+f03052521de6853ab1065edf51f9b4460f89ca41
+
+IMPALA-2075: Report the correct time spent in the Join Node (conflicts and test failure)
+958202f0e605bf889806624424b24292d10f3acc
+
+IMPALA-2474: PlannerTest fails due to nested types file size mismatch (PlannerTest related)
+7cd4100a3cc74de6bbaff2ed4d586528f0b021b2
+IMPALA-2474: PlannerTest fails due to nested types file size mismatch
+9a16809a3a2e01cfa8494fecadc0e555e9ce8d29
+IMPALA-2445: Preserve chain of table refs until end of computeParentA…
+0bafdf51d57dc94f5d337df928635c1373783380
+
+Bump impala version to v2.3.0-cdh5.5.0
+22468a645d084bb1839250fe374243590a626269
+
+CDH-33118: Fix flaky test predicate-propagation.test (PlannerTest related)
+dff9ea16a211e1dd069039d2c7e769391223ca2f
+
+IMPALA-2598: (Workaround) Disallow Kerberos and SSL on server<->server (too many conflicts)
+e6a7de3e78ee80392b8972c766a249ed160d9bdc
 
