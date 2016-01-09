@@ -25,18 +25,10 @@ Python Virtual Env
 Python: Add thrift_sasl to virtualenv
 060561d061cb98d01089cb7979e3132f60ca3121
 
-IMPALA-2251: disallow clashing text delimiters
-cc7246b0ef2a760fffef1a1c378d350d6d37b5e3
-IMPALA-2257: fix broken build caused by IMPALA-2251 fix
-8fcdff03363fa663fbf1d049659cc35f193aaa9d
-
 Nested Types: Check un/supported file formats for complex types.
 2b4d7ecd22e914f0f4c9d612f76de22fe1d484d9
 IMPALA-2315: Re-enable planner tests for nested types.
 56152e4cbda301cea592a82738f45fddfd314300
-
-IMPALA-1136, IMPALA-2161: Skip \u0000 characters when dealing Avro (Need toolchain update)
-9880145daa79f5cc603908ddf7aac6fc61e642d2
 
 CDH-30961: Allow Thrift to accept TLSv1.1 and v1.2 (Need toolchain update).
 fc2c96feb49e10af0a9ae8098f0acea7b64b063e
