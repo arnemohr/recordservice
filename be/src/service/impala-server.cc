@@ -1800,7 +1800,7 @@ bool ImpalaServer::QueryStateRecord::operator() (
 // a TTransportException.
 void ImpalaServer::CheckConnectionLimit(int64_t num_connections, int64_t max,
     const string& service) {
-  if (num_connections + 1 == max) {
+  if (num_connections + 1 >= max) {
     LOG(WARNING) << "Rejecting client connection for " << service
                  << " due to exhausted handler threads.";
     ImpalaServer::ThrowRecordServiceException(recordservice::TErrorCode::SERVICE_BUSY,
