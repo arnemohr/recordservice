@@ -151,7 +151,7 @@ HdfsPartitionDescriptor::HdfsPartitionDescriptor(const THdfsPartition& thrift_pa
     location_(thrift_partition.location),
     id_(thrift_partition.id),
     serde_class_name_(thrift_partition.serde_class_name),
-    serde_properties_(thrift_partition.hms_parameters),
+    serde_properties_(thrift_partition.serde_parameters),
     exprs_prepared_(false),
     exprs_opened_(false),
     exprs_closed_(false),

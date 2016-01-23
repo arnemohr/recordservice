@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.commons.lang.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -269,6 +268,10 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
   // (k,v) pairs of parameters for this partition, stored in the HMS. Used by Impala to
   // store intermediate state for statistics computations.
   private Map<String, String> hmsParameters_;
+
+  // (k,v) pairs of parameters for this partition/table. Currently only used for
+  // Hive SerDe support.
+  private Map<String, String> serdeParameters_;
 
   public HdfsStorageDescriptor getInputFormatDescriptor() {
     return fileFormatDescriptor_;
@@ -544,6 +547,7 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
     fileFormatDescriptor_ = fileFormatDescriptor;
     id_ = id;
     accessLevel_ = accessLevel;
+    serdeParameters_ = Maps.newHashMap();
 
     Properties properties;
     if (msPartition != null && msPartition.getParameters() != null) {
@@ -561,7 +565,7 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
 
     // Add all the schema properties
     for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-      hmsParameters_.put((String)entry.getKey(), (String)entry.getValue());
+      serdeParameters_.put((String)entry.getKey(), (String)entry.getValue());
     }
 
     // TODO: instead of raising an exception, we should consider marking this partition
@@ -675,6 +679,12 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
       partition.hmsParameters_ = Maps.newHashMap();
     }
 
+    if (thriftPartition.isSetSerde_parameters()) {
+      partition.serdeParameters_ = thriftPartition.getSerde_parameters();
+    } else {
+      partition.serdeParameters_ = Maps.newHashMap();
+    }
+
     return partition;
   }
 
@@ -711,6 +721,7 @@ public class HdfsPartition implements Comparable<HdfsPartition> {
     thriftHdfsPart.setIs_marked_cached(isMarkedCached_);
     thriftHdfsPart.setId(getId());
     thriftHdfsPart.setHms_parameters(hmsParameters_);
+    thriftHdfsPart.setSerde_parameters(serdeParameters_);
     if (includeFileDesc) {
       // Add block location information
       for (FileDescriptor fd: fileDescriptors_) {

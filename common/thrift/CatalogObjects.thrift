@@ -259,6 +259,9 @@ struct THdfsPartition {
   // deserialize rows passed from backend HdfsHiveSerdeScanner.
   // This is only set for HDFS partitions that require to run Hive serde to parse.
   16: optional string serde_class_name
+
+  // (key,value) pairs of additional properties needed for Hive SerDe support.
+  17: optional map<string, string> serde_parameters
 }
 
 struct THdfsTable {
