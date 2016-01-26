@@ -615,9 +615,11 @@ void ImpalaServer::LogQueryEvents(const QueryExecState& exec_state) {
       break;
   }
   // Log audit events that are due to an AuthorizationException.
-  if (IsAuditEventLoggingEnabled() &&
-      (Frontend::IsAuthorizationError(exec_state.query_status()) || log_events)) {
-    LogAuditRecord(exec_state, exec_state.exec_request());
+  if (!exec_env_->is_record_service()) {
+    if (IsAuditEventLoggingEnabled() &&
+        (Frontend::IsAuthorizationError(exec_state.query_status()) || log_events)) {
+      LogAuditRecord(exec_state, exec_state.exec_request());
+    }
   }
   if (IsLineageLoggingEnabled() && log_events) {
     LogLineageRecord(exec_state.exec_request());
@@ -896,7 +898,9 @@ Status ImpalaServer::ExecuteInternal(
     TExecRequest* request,
     QueryExecState* exec_state) {
   QUERY_VLOG_FRAGMENT(exec_state->logger()) << ThriftDebugString(*(request));
-  if (IsAuditEventLoggingEnabled()) {
+
+  // Do not need to log audit events for RecordService workers
+  if (!exec_env_->is_record_service() && IsAuditEventLoggingEnabled()) {
     LogAuditRecord(*exec_state, *(request));
   }
 

@@ -614,6 +614,7 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
   TQueryCtx query_ctx;
   PrepareQueryContext(&query_ctx);
   query_ctx.__set_is_record_service_request(true);
+  record->id = query_ctx.query_id;
 
   // Setting num_nodes = 1 means we generate a single node plan which has
   // a simpler structure. It also prevents Impala from analyzing multi-table
@@ -639,6 +640,7 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
         "Could not get session.", status.msg().GetFullMessageDetails());
   }
   DCHECK(session != NULL);
+
   // Set the user name. If it was set by a lower-level transport (i.e authenticated
   // user), use that. Otherwise, use the value in the request.
   const ThriftServer::Username& username =
@@ -650,6 +652,11 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
   }
 
   unique_lock<mutex> tmp_tbl_lock;
+
+  // Populate session_id to query_ctx, for logging audit events.
+  // The exec_state here is only used for auditing purpose.
+  session->ToThrift(session_id, &query_ctx.session);
+  QueryExecState exec_state(query_ctx, exec_env_, exec_env_->frontend(), this, session);
 
   switch (req.request_type) {
     case recordservice::TRequestType::Sql:
@@ -663,7 +670,7 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
 
       string tmp_table;
       THdfsFileFormat::type format;
-      Status status = CreateTmpTable(req, &tmp_table, path_filter, &format);
+      Status status = CreateTmpTable(exec_state, req, &tmp_table, path_filter, &format);
       if (!status.ok()) {
         ThrowRecordServiceException(recordservice::TErrorCode::INVALID_REQUEST,
             "Could not create temporary table.",
@@ -695,6 +702,8 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
   record->stmt = query_ctx.request.stmt;
   VLOG_REQUEST << "RecordService::PlanRequest: " << query_ctx.request.stmt;
 
+  // Need to do this again because session->connected_user may be updated
+  // inside CreateTmpTable()
   session->ToThrift(session_id, &query_ctx.session);
   record->effective_user = session->connected_user;
 
@@ -702,7 +711,12 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
   TExecRequest result;
   status = exec_env_->frontend()->GetRecordServiceExecRequest(query_ctx, &result);
   if (tmp_tbl_lock.owns_lock()) tmp_tbl_lock.unlock();
+
+  exec_state.UpdateQueryStatus(status);
   if (!status.ok()) {
+    if (IsAuditEventLoggingEnabled() && Frontend::IsAuthorizationError(status)) {
+      LogAuditRecord(exec_state, result);
+    }
     ThrowRecordServiceException(recordservice::TErrorCode::INVALID_REQUEST,
         "Could not plan request.",
         status.msg().GetFullMessageDetails());
@@ -711,6 +725,11 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
     ThrowRecordServiceException(recordservice::TErrorCode::INVALID_REQUEST,
         "Cannot run non-SELECT statements");
   }
+
+  if (IsAuditEventLoggingEnabled()) {
+    LogAuditRecord(exec_state, result);
+  }
+  result.access_events.clear();
 
   return result;
 }
@@ -997,12 +1016,6 @@ void ImpalaServer::PlanRequest(recordservice::TPlanRequestResult& return_val,
     vector<TScanRangeLocations> scan_ranges;
     const int64_t scan_node_id = query_request.per_node_scan_ranges.begin()->first;
     scan_ranges.swap(query_request.per_node_scan_ranges.begin()->second);
-
-    // FIXME: log audit events. Is there right? Should we log this on the worker?
-    //if (IsAuditEventLoggingEnabled()) {
-    //  LogAuditRecord(*(exec_state->get()), *(request));
-    //}
-    result.access_events.clear();
 
     return_val.request_id.hi = query_request.query_ctx.query_id.hi;
     return_val.request_id.lo = query_request.query_ctx.query_id.lo;
@@ -1599,7 +1612,8 @@ void ImpalaServer::GetTaskStatus(recordservice::TTaskStatus& return_val,
   }
 }
 
-Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req,
+Status ImpalaServer::CreateTmpTable(QueryExecState& exec_state,
+    const recordservice::TPlanRequestParams& req,
     string* table_name, scoped_ptr<re2::RE2>* path_filter,
     THdfsFileFormat::type* format) {
   hdfsFS fs;
@@ -1650,6 +1664,15 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
         recordservice::TErrorCode::INVALID_REQUEST, ss.str());
   }
 
+  // Each planner maintains a separate tmp table which is identified by the
+  // IP address followed by process ID, to avoid collision.
+  stringstream ss;
+  ss << FLAGS_rs_tmp_db << "." << string(TEMP_TBL) << "_"
+     << replace_all_copy(resolved_localhost_ip_, ".", "_")
+     << "_" << getpid();
+  *table_name = ss.str();
+  string create_tbl_stmt("CREATE EXTERNAL TABLE " + *table_name);
+
   // Check if the user has privilege to the path
   const ThriftServer::Username& username =
       ThriftServer::GetThreadConnectionContext()->username;
@@ -1663,12 +1686,21 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
   auth_path_request.path = path;
   RETURN_IF_ERROR(
       exec_env_->frontend()->AuthorizePath(auth_path_request, &auth_path_response));
+
   if (!auth_path_response.success) {
-    stringstream ss;
-    ss << "User " << auth_path_request.username << " does not have full access "
-       << "to the path " << auth_path_request.path;
+    Status status(ErrorMsg(TErrorCode::ANALYSIS_ERROR,
+            Substitute("AuthorizationException: user '$0' does not have full access "
+                "to the path '$1'", auth_path_request.username, auth_path_request.path)));
+    if (IsAuditEventLoggingEnabled()) {
+      exec_state.UpdateQueryStatus(status);
+      std::set<TAccessEvent> empty_set;
+      TExecRequest request;
+      request.stmt_type = TStmtType::QUERY;
+      request.access_events = empty_set;
+      LogAuditRecord(exec_state, request);
+    }
     ThrowRecordServiceException(
-        recordservice::TErrorCode::AUTHENTICATION_ERROR, ss.str());
+        recordservice::TErrorCode::AUTHENTICATION_ERROR, status.GetDetail());
   }
 
   if (!suffix.empty()) path_filter->reset(new re2::RE2(FilePatternToRegex(suffix)));
@@ -1676,15 +1708,6 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
   string first_file;
   RETURN_IF_ERROR(
       DetermineFileFormat(fs, path, path_filter->get(), format, &first_file));
-
-  // Each planner maintains a separate tmp table which is identified by the
-  // IP address followed by process ID, to avoid collision.
-  stringstream ss;
-  ss << FLAGS_rs_tmp_db << "." << string(TEMP_TBL) << "_"
-     << replace_all_copy(resolved_localhost_ip_, ".", "_")
-     << "_" << getpid();
-  *table_name = ss.str();
-  string create_tbl_stmt("CREATE EXTERNAL TABLE " + *table_name);
 
   // Append the schema to the create statement.
   if (request.__isset.schema) {
@@ -1775,10 +1798,17 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
     query_ctx.session.connected_user = session_state->connected_user;
 
     shared_ptr<QueryExecState> exec_state;
-    RETURN_IF_ERROR(Execute(&query_ctx, session_state, &exec_state));
+    Status status = Execute(&query_ctx, session_state, &exec_state);
+    if (!status.ok()) {
+      if (IsAuditEventLoggingEnabled() && Frontend::IsAuthorizationError(status)) {
+        LogAuditRecord(*exec_state.get(), exec_state->exec_request());
+      }
+      return status;
+    }
+
     exec_state->UpdateQueryState(QueryState::RUNNING);
 
-    Status status = SetQueryInflight(session_state, exec_state);
+    status = SetQueryInflight(session_state, exec_state);
     if (!status.ok()) {
       UnregisterQuery(exec_state->query_id(), false, &status);
       return status;
@@ -1788,6 +1818,9 @@ Status ImpalaServer::CreateTmpTable(const recordservice::TPlanRequestParams& req
     exec_state->Wait();
     status = exec_state->query_status();
     if (!status.ok()) {
+      if (IsAuditEventLoggingEnabled() && Frontend::IsAuthorizationError(status)) {
+        LogAuditRecord(*exec_state.get(), exec_state->exec_request());
+      }
       UnregisterQuery(exec_state->query_id(), false, &status);
       return status;
     }
