@@ -24,6 +24,7 @@
 #include "exec/text-converter.h"
 #include "exec/hdfs-scan-node.h"
 #include "exec/read-write-util.h"
+#include "exec/scanner.cc"
 #include "exec/text-converter.inline.h"
 #include "exprs/expr-context.h"
 #include "runtime/array-value-builder.h"
@@ -52,13 +53,15 @@ const char* FieldLocation::LLVM_CLASS_NAME = "struct.impala::FieldLocation";
 const char* HdfsScanner::LLVM_CLASS_NAME = "class.impala::HdfsScanner";
 
 HdfsScanner::HdfsScanner(HdfsScanNode* scan_node, RuntimeState* state)
-    : scan_node_(scan_node),
+    : Scanner(scan_node->tuple_desc()->byte_size(),
+        scan_node->runtime_state()->is_record_service_request(), state->batch_size(),
+        scan_node->runtime_state()->exec_env()->get_shared_scanner_lock()),
+      scan_node_(scan_node),
       state_(state),
       context_(NULL),
       stream_(NULL),
       scanner_conjunct_ctxs_(NULL),
       template_tuple_(NULL),
-      tuple_byte_size_(scan_node->tuple_desc()->byte_size()),
       tuple_(NULL),
       batch_(NULL),
       tuple_mem_(NULL),
@@ -129,10 +132,22 @@ Status HdfsScanner::InitializeWriteTuplesFn(HdfsPartitionDescriptor* partition,
 }
 
 void HdfsScanner::StartNewRowBatch() {
-  batch_ = new RowBatch(scan_node_->row_desc(), state_->batch_size(),
+  int adjusted_fetch_size = GetAdjustedFetchSize();
+  batch_ = new RowBatch(scan_node_->row_desc(), adjusted_fetch_size,
       scan_node_->mem_tracker());
   tuple_mem_ =
-      batch_->tuple_data_pool()->Allocate(state_->batch_size() * tuple_byte_size_);
+      batch_->tuple_data_pool()->Allocate(adjusted_fetch_size * tuple_byte_size_);
+}
+
+int64_t HdfsScanner::GetSpareCapacity() {
+  return spare_capacity_correction_factor_ *
+      min(scan_node_->mem_tracker()->SpareCapacity(),
+      scan_node_->runtime_state()->exec_env()->process_mem_tracker()->SpareCapacity()
+      / max(1, GetNumActiveScanners()));
+}
+
+int64_t HdfsScanner::GetThreadSpareCapacity() {
+  return scan_node_->mem_tracker()->SpareCapacity();
 }
 
 int HdfsScanner::GetMemory(MemPool** pool, Tuple** tuple_mem, TupleRow** tuple_row_mem) {
@@ -173,6 +188,8 @@ Status HdfsScanner::CommitRows(int num_rows) {
   if (batch_->AtCapacity() || context_->num_completed_io_buffers() > 0) {
     context_->ReleaseCompletedResources(batch_, /* done */ false);
     scan_node_->AddMaterializedRowBatch(batch_);
+    // Release the scanner lock when finishing the last batch.
+    ReleaseScannerLock();
     StartNewRowBatch();
   }
 
@@ -190,6 +207,8 @@ void HdfsScanner::AddFinalRowBatch() {
   DCHECK(batch_ != NULL);
   context_->ReleaseCompletedResources(batch_, /* done */ true);
   scan_node_->AddMaterializedRowBatch(batch_);
+  // Release the scanner lock when finishing the last batch.
+  ReleaseScannerLock();
   batch_ = NULL;
 }
 
