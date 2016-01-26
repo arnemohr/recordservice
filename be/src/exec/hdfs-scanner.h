@@ -24,6 +24,7 @@
 
 #include "codegen/impala-ir.h"
 #include "exec/hdfs-scan-node.h"
+#include "exec/scanner.h"
 #include "exec/scan-node.h"
 #include "exec/scanner-context.h"
 #include "runtime/disk-io-mgr.h"
@@ -89,7 +90,7 @@ struct FieldLocation {
 /// resources (IO buffers and mem pools) to the current row batch, and passing row batches
 /// up to the scan node. Subclasses can also use GetMemory() to help with per-row memory
 /// management.
-class HdfsScanner {
+class HdfsScanner : public Scanner {
  public:
   /// Assumed size of an OS file block.  Used mostly when reading file format headers, etc.
   /// This probably ought to be a derived number from the environment.
@@ -174,9 +175,6 @@ class HdfsScanner {
   /// (i.e. template_tuple_map_[scan_node_->tuple_desc()]).
   Tuple* template_tuple_;
 
-  /// Fixed size of each top-level tuple, in bytes
-  int tuple_byte_size_;
-
   /// Current tuple pointer into tuple_mem_.
   Tuple* tuple_;
 
@@ -234,6 +232,17 @@ class HdfsScanner {
 
   /// Set batch_ to a new row batch and update tuple_mem_ accordingly.
   void StartNewRowBatch();
+
+  /// Override of GetSpareCapacity function in Scanner class. Return the spare capacity
+  /// according to the spare capacity and the number of active scanners in real time. It
+  /// will be the minimum value of spare capacity only for this scanner and the total
+  /// spare capacity equally divided by all the active scanners.
+  int64_t GetSpareCapacity();
+
+  /// Override of GetThreadSpareCapacity function in Scanner class. Return the spare
+  /// capacity only for this scanner thread. It will be less than or equals to the total
+  /// spare capacity for the process.
+  int64_t GetThreadSpareCapacity();
 
   /// Reset internal state for a new scan range.
   virtual Status InitNewRange() = 0;

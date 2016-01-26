@@ -162,7 +162,8 @@ ExecEnv::ExecEnv(const string& server_id, bool running_planner, bool running_wor
     tz_database_(TimezoneDatabase()),
     is_fe_tests_(false),
     backend_address_(MakeNetworkAddress(FLAGS_hostname, FLAGS_be_port)),
-    is_pseudo_distributed_llama_(false) {
+    is_pseudo_distributed_llama_(false),
+    shared_scanner_lock_() {
   if (running_planner) {
     catalog_.reset(new Catalog());
   } else if (!is_record_service()) {
@@ -221,7 +222,8 @@ ExecEnv::ExecEnv(const string& hostname, int backend_port, int subscriber_port,
     tz_database_(TimezoneDatabase()),
     is_fe_tests_(false),
     backend_address_(MakeNetworkAddress(FLAGS_hostname, backend_port)),
-    is_pseudo_distributed_llama_(false) {
+    is_pseudo_distributed_llama_(false),
+    shared_scanner_lock_() {
   request_pool_service_.reset(new RequestPoolService(metrics_.get()));
   if (FLAGS_enable_rm) InitRm();
   InitStatestoreSubscriber();

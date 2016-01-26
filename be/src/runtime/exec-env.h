@@ -21,6 +21,7 @@
 #include <boost/thread/thread.hpp>
 
 #include "common/status.h"
+#include "exec/scannerLock.h"
 #include "exprs/timestamp-functions.h"
 #include "runtime/client-cache.h"
 #include "util/cgroups-mgr.h"
@@ -129,6 +130,9 @@ class ExecEnv {
   /// resource locations.
   bool is_pseudo_distributed_llama() { return is_pseudo_distributed_llama_; }
 
+  /// Returns the scanner lock shared by all scanner threads.
+  ScannerLock* get_shared_scanner_lock() { return &shared_scanner_lock_; }
+
  protected:
   /// True if this daemon is running the planner/worker service. If either is true
   /// this must be the recordserviced.
@@ -180,6 +184,11 @@ class ExecEnv {
   /// indicating that this cluster is pseudo-distributed. Should not be true in real
   /// deployments.
   bool is_pseudo_distributed_llama_;
+
+  /// Lock shared by all scanner threads. When memory is insufficient for running all
+  /// active scanner threads concurrently, only one scanner thread can acquire this
+  /// lock and fetch the new row batch.
+  ScannerLock shared_scanner_lock_;
 
   /// Initializes statestore_subscriber_.
   void InitStatestoreSubscriber();

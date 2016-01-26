@@ -179,6 +179,22 @@ DECLARE_bool(compact_catalog_topic);
 DEFINE_int32(recordservice_planner_port, 12050, "Port to run RecordService planner");
 DEFINE_int32(recordservice_worker_port, 13050, "Port to run RecordService worker");
 
+DEFINE_bool(rs_adjust_fetch_size, true,
+    "If true and use RecordService, scanner will dynamically adjust the fetch size "
+    "according to the spare capacity.");
+
+DEFINE_int32(rs_scanner_min_fetch_size, 500, "The minimum fetch size for the scanner "
+    "thread.");
+
+DEFINE_double(rs_fetch_size_increase_factor, 0.001,
+    "Correction factor to adjust the increased fetch size, must > 0 and <= 1.");
+
+DEFINE_double(rs_fetch_size_decrease_factor, 1.5,
+    "Correction factor to adjust the decreased fetch size, must >= 1.");
+
+DEFINE_double(rs_spare_capacity_correction_factor, 0.8,
+    "Correction factor to adjust the spare capacity, must > 0 and <= 1");
+
 namespace impala {
 
 // Prefix of profile, event and lineage log filenames. The version number is
