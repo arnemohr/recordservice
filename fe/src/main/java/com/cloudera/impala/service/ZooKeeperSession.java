@@ -136,9 +136,9 @@ public class ZooKeeperSession implements Closeable {
   // ID for this service.
   private final String id_;
 
-  // If true, running the RecordService planner/worker services.
-  private final boolean runningPlanner_;
-  private final boolean runningWorker_;
+  // Planner and worker ports. Greater than 0 if set.
+  private final int plannerPort_;
+  private final int workerPort_;
 
   /**
    * ACLProvider permissions will be used in case parent dirs need to be created
@@ -156,17 +156,21 @@ public class ZooKeeperSession implements Closeable {
 
   /**
    * Connects to zookeeper and handles maintaining membership.
+   * Note: this can only be called when either planner or worker is running.
    * @param conf
    * @param id - The ID for this server. This should be unique among
    *    all instances of the service.
-   * @param runningPlanner - If true, running the planner service.
-   * @param runningWorker - If true, running the worker service.
+   * @param plannerPort - If greater than 0, running the planner service.
+   * @param workerPort - If greater than 0, running the worker service.
    */
-  public ZooKeeperSession(Configuration conf, String id, boolean runningPlanner,
-      boolean runningWorker) throws IOException {
+  public ZooKeeperSession(Configuration conf, String id, int plannerPort,
+      int workerPort) throws IOException {
     id_ = id;
-    runningPlanner_ = runningPlanner;
-    runningWorker_ = runningWorker;
+    plannerPort_ = plannerPort;
+    workerPort_ = workerPort;
+    Preconditions.checkArgument(runningPlanner() || runningWorker(),
+        "ZooKeeperSession cannot be initialized when neither" +
+            " planner nor worker is running. ");
 
     zkConnectString_ = conf.get(ZOOKEEPER_CONNECTION_STRING_CONF);
     if (zkConnectString_ == null || zkConnectString_.trim().isEmpty()) {
@@ -249,8 +253,8 @@ public class ZooKeeperSession implements Closeable {
       }
       // Just started a new session, register membership.
       if (recreatedSession) {
-        if (runningPlanner_) registerMembership(zkSession_, true);
-        if (runningWorker_) registerMembership(zkSession_, false);
+        if (runningPlanner()) registerMembership(zkSession_, true);
+        if (runningWorker()) registerMembership(zkSession_, false);
 
         synchronized (newSessionsCbs_) {
           for (NewSessionCb cb: newSessionsCbs_) {
@@ -277,7 +281,7 @@ public class ZooKeeperSession implements Closeable {
    * or false. Only callable for planner services.
    */
   public Set<String> getMembership(boolean planner) {
-    if (!runningPlanner_) {
+    if (!runningPlanner()) {
       // TODO: we can either always listen to the membership or just get the list on
       // demand for worker-only services. Currently, there is no use case for this.
       throw new IllegalStateException("Can only call when running planner.");
@@ -405,8 +409,10 @@ public class ZooKeeperSession implements Closeable {
       initMembership(zk, false);
     }
 
+    String serviceId = id_ + ":" + (planner ? plannerPort_ : workerPort_);
     String path = getRelativePath(
-        (planner ? PLANNER_MEMBERSHIP_ZNODE : WORKER_MEMBERSHIP_ZNODE) + "/" + id_);
+        (planner ? PLANNER_MEMBERSHIP_ZNODE : WORKER_MEMBERSHIP_ZNODE)
+            + "/" + serviceId);
     // First delete the current path. This is required for correctness. For example, if
     // this service is restarted, the previous znode might still be there (hasn't timed
     // out yet) and this function would not be able to create the znode with this
@@ -486,6 +492,16 @@ public class ZooKeeperSession implements Closeable {
     ensurePath(getRelativePath(PLANNER_MEMBERSHIP_ZNODE), newNodeAcl_);
     ensurePath(getRelativePath(WORKER_MEMBERSHIP_ZNODE), newNodeAcl_);
   }
+
+  /**
+   * Whether this is running as a planner service.
+   */
+  private boolean runningPlanner() { return plannerPort_ > 0; }
+
+  /**
+   * Whether this is running as a worker service.
+   */
+  private boolean runningWorker() { return workerPort_ > 0; }
 
   /**
    * Parse comma separated list of ACL entries to secure generated nodes, e.g.

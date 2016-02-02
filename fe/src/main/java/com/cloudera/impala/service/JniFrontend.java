@@ -199,12 +199,12 @@ public class JniFrontend {
   /**
    * Initializes zookeeper for delegation tokens and/or membership.
    */
-  public void initZooKeeper(String serviceId, boolean enableDelegationTokens)
-      throws InternalException {
+  public void initZooKeeper(String serviceName, int plannerPort, int workerPort,
+      boolean enableDelegationTokens) throws InternalException {
     ZooKeeperSession zkSession = null;
     // Start up zookeeper/curator connection.
     try {
-      zkSession = new ZooKeeperSession(CONF, serviceId, runningPlanner_, runningWorker_);
+      zkSession = new ZooKeeperSession(CONF, serviceName, plannerPort, workerPort);
     } catch (IOException e) {
       throw new InternalException("Could not start up zookeeper session.", e);
     }

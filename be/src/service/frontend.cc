@@ -67,7 +67,7 @@ Frontend::Frontend(bool running_planner, bool running_worker) {
   JniMethodDescriptor methods[] = {
     {"<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;"
         "Ljava/lang/String;IIZZILjava/lang/String;)V", &fe_ctor_},
-    {"initZooKeeper", "(Ljava/lang/String;Z)V", &init_zookeeper_id_},
+    {"initZooKeeper", "(Ljava/lang/String;IIZ)V", &init_zookeeper_id_},
     {"createExecRequest", "([B)[B", &create_exec_request_id_},
     {"createRecordServiceExecRequest", "([B)[B", &create_rs_exec_request_id_},
     {"getExplainPlan", "([B)Ljava/lang/String;", &get_explain_plan_id_},
@@ -143,8 +143,16 @@ Status Frontend::InitZooKeeper() {
 
   jboolean enable_delegation_tokens = !FLAGS_principal.empty() &&
       (FLAGS_recordservice_worker_port != 0 || FLAGS_recordservice_planner_port != 0);
-  jstring sid = jni_env->NewStringUTF(ExecEnv::GetInstance()->server_id().c_str());
-  jni_env->CallObjectMethod(fe_, init_zookeeper_id_, sid, enable_delegation_tokens);
+
+  // Strip out the port number
+  string server_id = ExecEnv::GetInstance()->server_id();
+  int colon_idx = server_id.find(':');
+  DCHECK(colon_idx != string::npos);
+  jstring sname = jni_env->NewStringUTF(server_id.substr(0, colon_idx).c_str());
+
+  jni_env->CallObjectMethod(fe_, init_zookeeper_id_, sname,
+      FLAGS_recordservice_planner_port, FLAGS_recordservice_worker_port,
+      enable_delegation_tokens);
   RETURN_ERROR_IF_EXC(jni_env);
   return Status::OK();
 }

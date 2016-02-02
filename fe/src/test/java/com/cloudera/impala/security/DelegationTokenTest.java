@@ -85,7 +85,7 @@ public class DelegationTokenTest {
           ZOOKEEPER_HOSTPORT);
       config.set(ZooKeeperSession.ZOOKEEPER_STORE_ACL_CONF,
           ZOOKEEPER_ACL);
-      zk = new ZooKeeperSession(config, "test", true, true);
+      zk = new ZooKeeperSession(config, "test", 1, 1);
     }
     DelegationTokenManager mgr = new DelegationTokenManager(config, true, zk);
 

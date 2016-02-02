@@ -34,7 +34,7 @@ public class ZooKeeperTest {
     conf.set(ZooKeeperSession.ZOOKEEPER_STORE_ACL_CONF, ZOOKEEPER_ACL);
 
     // Start a session that runs the planner and worker.
-    ZooKeeperSession session1 = new ZooKeeperSession(conf, "s1", true, true);
+    ZooKeeperSession session1 = new ZooKeeperSession(conf, "s1", 1, 1);
     // Should see one planner.
     verifyMembership(session1, true, 1);
 
@@ -42,7 +42,7 @@ public class ZooKeeperTest {
     verifyMembership(session1, false, 1);
 
     // Start a session that just runs a worker.
-    ZooKeeperSession session2 = new ZooKeeperSession(conf, "s2", false, true);
+    ZooKeeperSession session2 = new ZooKeeperSession(conf, "s2", 0, 1);
     Thread.sleep(5000);
 
     // Should still see one planner.
@@ -54,7 +54,8 @@ public class ZooKeeperTest {
     ZooKeeperSession[] sessions = new ZooKeeperSession[NUM_SESSIONS];
     for (int i = 0; i < sessions.length; ++i) {
       // Start up some more planners and workers.
-      sessions[i] = new ZooKeeperSession(conf, "session_" + i, (i % 2) == 0, true);
+      sessions[i] = new ZooKeeperSession(
+        conf, "session_" + i, (i % 2) == 0 ? 1 : 0, 1);
     }
 
     verifyMembership(session1, true, 1 + NUM_SESSIONS / 2);
@@ -112,7 +113,7 @@ public class ZooKeeperTest {
     // Test the case when there are only planners
     List<ZooKeeperSession> sessions = new ArrayList<ZooKeeperSession>();
     for (int i = 0; i < 3; ++i) {
-      sessions.add(new ZooKeeperSession(conf, "session_" + i, true, false));
+      sessions.add(new ZooKeeperSession(conf, "session_" + i, 1, 0));
     }
     for (int i = 0; i < sessions.size(); ++i) {
       verifyMembership(sessions.get(i), true, sessions.size());
@@ -124,7 +125,7 @@ public class ZooKeeperTest {
     // Test the case when there are only workers
     sessions.clear();
     for (int i = 0; i < 3; ++i) {
-      sessions.add(new ZooKeeperSession(conf, "session_" + i, false, true));
+      sessions.add(new ZooKeeperSession(conf, "session_" + i, 0, 1));
     }
     for (int i = 0; i < sessions.size(); ++i) {
       verifyMembership(sessions.get(i), false, sessions.size());
