@@ -60,6 +60,9 @@ class RecordServiceMetricKeys {
 
   // Task size.
   static const char* RECORDSERVICE_TASK_SIZE_KEY;
+
+  // Fetch size (number of rows fetched in one batch).
+  static const char* RECORDSERVICE_FETCH_SIZE_KEY;
 };
 
 // Global recordservice-wide metrics.
@@ -90,6 +93,7 @@ class RecordServiceMetrics {
 
   // Other
   static StatsMetric<int>* RECORDSERVICE_TASK_SIZE;
+  static StatsMetric<int>* RECORDSERVICE_FETCH_SIZE;
 
   // Creates and initializes all metrics above in 'm'.
   static void CreateMetrics(MetricGroup* m);

@@ -1517,6 +1517,7 @@ void ImpalaServer::Fetch(recordservice::TFetchResult& return_val,
 
     task_state->results->FinalizeResult();
     RecordServiceMetrics::NUM_ROWS_FETCHED->Increment(return_val.num_records);
+    RecordServiceMetrics::RECORDSERVICE_FETCH_SIZE->Update(return_val.num_records);
     QUERY_VLOG_BATCH(exec_state->logger())
         << "Fetched " << return_val.num_records << " records. Eos=" << return_val.done;
   } catch (const recordservice::TRecordServiceException& e) {

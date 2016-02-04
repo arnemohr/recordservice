@@ -652,7 +652,7 @@
   {
     "description": "The number of active RecordService planner connections to this Daemon.",
     "contexts": [
-      "IMPALAD"
+      "RECORDSERVICED"
     ],
     "label": "RecordService Planner Active Connections",
     "units": "NONE",
@@ -662,7 +662,7 @@
   {
     "description": "The total number of RecordService planner connections to this Daemon over its lifetime.",
     "contexts": [
-      "IMPALAD"
+      "RECORDSERVICED"
     ],
     "label": "RecordService Planner Total Connections",
     "units": "NONE",
@@ -672,7 +672,7 @@
   {
     "description": "The number of active RecordService worker connections to this Daemon.",
     "contexts": [
-      "IMPALAD"
+      "RECORDSERVICED"
     ],
     "label": "RecordService Worker Active Connections",
     "units": "NONE",
@@ -682,7 +682,7 @@
   {
     "description": "The total number of RecordService worker connections to this Daemon over its lifetime.",
     "contexts": [
-      "IMPALAD"
+      "RECORDSERVICED"
     ],
     "label": "RecordService Worker Total Connections",
     "units": "NONE",
@@ -692,12 +692,22 @@
   {
     "description": "RecordService Task Size (Bytes).",
     "contexts": [
-      "IMPALAD"
+      "RECORDSERVICED"
     ],
     "label": "RecordService Task Size (Bytes)",
     "units": "BYTES",
     "kind": "STATS",
     "key": "record-service.task-bytes"
+  },
+  {
+    "description": "RecordService Fetch Size (number of rows fetched in one batch).",
+    "contexts": [
+      "RECORDSERVICED"
+    ],
+    "label": "RecordService Fetch Size",
+    "units": "NONE",
+    "kind": "STATS",
+    "key": "record-service.fetch-size"
   },
   {
     "description": "The amount of memory freed by the last memory tracker garbage collection.",
