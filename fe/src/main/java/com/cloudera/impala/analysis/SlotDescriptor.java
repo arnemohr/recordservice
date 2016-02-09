@@ -123,7 +123,6 @@ public class SlotDescriptor {
   public void setPath(Path path) {
     Preconditions.checkNotNull(path);
     Preconditions.checkState(path.isRootedAtTuple());
-    Preconditions.checkState(path.getRootDesc() == parent_);
     path_ = path;
     type_ = path_.destType();
     label_ = Joiner.on(".").join(path.getRawPath());

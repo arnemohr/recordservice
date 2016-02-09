@@ -28,6 +28,7 @@ import com.cloudera.impala.catalog.StructField;
 import com.cloudera.impala.catalog.StructType;
 import com.cloudera.impala.catalog.Table;
 import com.cloudera.impala.catalog.TableLoadingException;
+import com.cloudera.impala.catalog.Type;
 import com.cloudera.impala.common.AnalysisException;
 import com.cloudera.impala.common.ColumnAliasGenerator;
 import com.cloudera.impala.common.TableAliasGenerator;
@@ -49,7 +50,7 @@ public class SelectStmt extends QueryStmt {
   // BEGIN: Members that need to be reset()
 
   protected SelectList selectList_;
-  protected final ArrayList<String> colLabels_; // lower case column labels
+  protected ArrayList<String> colLabels_; // lower case column labels
   protected final List<TableRef> tableRefs_;
   protected Expr whereClause_;
   protected ArrayList<Expr> groupingExprs_;
@@ -180,9 +181,9 @@ public class SelectStmt extends QueryStmt {
       if (item.isStar()) {
         if (item.getRawPath() != null) {
           Path resolvedPath = analyzeStarPath(item.getRawPath(), analyzer);
-          expandStar(resolvedPath, analyzer);
+          expandStar(resolvedPath, analyzer, analyzer.isRecordService());
         } else {
-          expandStar(analyzer);
+          expandStar(analyzer, analyzer.isRecordService());
         }
       } else {
         // Analyze the resultExpr before generating a label to ensure enforcement
@@ -192,6 +193,7 @@ public class SelectStmt extends QueryStmt {
           throw new AnalysisException(
               "Subqueries are not supported in the select list.");
         }
+
         resultExprs_.add(item.getExpr());
         String label = item.toColumnLabel(i, analyzer.useHiveColLabels());
         SlotRef aliasRef = new SlotRef(label);
@@ -206,24 +208,36 @@ public class SelectStmt extends QueryStmt {
       }
     }
 
+    // For RecordService, we need to process the complex types and recursively
+    // materialize all the necessary slots nested inside them.
+    if (analyzer.isRecordService()) {
+      fullyMaterializeComplexTypes(analyzer);
+    }
+
     // Star exprs only expand to the scalar-typed columns/fields, so
     // the resultExprs_ could be empty.
-    if (resultExprs_.isEmpty()) {
-      throw new AnalysisException("The star exprs expanded to an empty select list " +
-          "because the referenced tables only have complex-typed columns.\n" +
-          "Star exprs only expand to scalar-typed columns because complex-typed exprs " +
-          "are currently not supported in the select list.\n" +
-          "Affected select statement:\n" + toSql());
+    if (!analyzer.isRecordService()) {
+      if (resultExprs_.isEmpty()) {
+        throw new AnalysisException("The star exprs expanded to an empty select list " +
+            "because the referenced tables only have complex-typed columns.\n" +
+            "Star exprs only expand to scalar-typed columns because complex-typed exprs " +
+            "are currently not supported in the select list.\n" +
+            "Affected select statement:\n" + toSql());
+      }
     }
 
     // Complex types are currently not supported in the select list because we'd need
-    // to serialize them in a meaningful way.
-    for (Expr expr: resultExprs_) {
-      if (expr.getType().isComplexType()) {
-        throw new AnalysisException(String.format(
-            "Expr '%s' in select list returns a complex type '%s'.\n" +
-            "Only scalar types are allowed in the select list.",
-            expr.toSql(), expr.getType().toSql()));
+    // to serialize them in a meaningful way. Note, this check doesn't apply for
+    // RecordService, since the RecordService client may require to return a collection
+    // value for further processing.
+    if (!analyzer.isRecordService()) {
+      for (Expr expr: resultExprs_) {
+        if (expr.getType().isComplexType()) {
+          throw new AnalysisException(String.format(
+              "Expr '%s' in select list returns a complex type '%s'.\n" +
+              "Only scalar types are allowed in the select list.",
+              expr.toSql(), expr.getType().toSql()));
+        }
       }
     }
 
@@ -281,6 +295,123 @@ public class SelectStmt extends QueryStmt {
     }
 
     if (aggInfo_ != null) LOG.debug("post-analysis " + aggInfo_.debugString());
+  }
+
+  /**
+   * This takes the 'resultExprs_' and fully materializes all the complex types.
+   * N.B., for exprs of struct type, this first removes them and then add back all the
+   * first non-struct type that can be reached via the top-most type.
+   * For instance: given an expr of struct type:
+   *   struct<
+   *     a:int
+   *     b:array<int>,
+   *     c:struct<d:array<array<struct<e:int,f:string>>>>,
+   *     g:map<string,struct<h:struct<i:array<double>>>>>
+   * This adds 4 exprs, corresponding to a, b, d, and g above, into 'resultExprs_'
+   */
+  private void fullyMaterializeComplexTypes(Analyzer analyzer) throws AnalysisException {
+    // Do a two-pass on the expr list. In the first pass, we identify all the exprs
+    // of struct type, and replace them with exprs described above.
+    // In the second pass, we fully expand and materialize all collection-typed exprs.
+    // This should only be called by RecordService.
+    Preconditions.checkArgument(true);
+    expandStructs(analyzer);
+    fullyMaterializeCollections(analyzer);
+  }
+
+  private void expandStructs(Analyzer analyzer) throws AnalysisException {
+    Preconditions.checkState(resultExprs_.size() == colLabels_.size());
+    ArrayList<Expr> oldResultExprs = resultExprs_;
+    resultExprs_ = new ArrayList<Expr>();
+    ArrayList<String> oldColLabels= colLabels_;
+    colLabels_ = new ArrayList<String>();
+    for (int i = 0; i < oldResultExprs.size(); ++i) {
+      Expr expr = oldResultExprs.get(i);
+      if (expr.getType().isStructType()) {
+        Preconditions.checkState(expr instanceof SlotRef);
+        SlotRef slotRef = (SlotRef) expr;
+        expandStar(slotRef.getResolvedPath(), analyzer, analyzer.isRecordService());
+
+        // TODO: revisit this since it may not be necessary.
+        slotRef.getDesc().getParent().getSlots().remove(slotRef.getDesc());
+
+        continue;
+      }
+
+      resultExprs_.add(expr);
+      colLabels_.add(oldColLabels.get(i));
+    }
+  }
+
+  // TODO: revisit the mutual recursion and make it simpler (i.e., a single function)
+  private void fullyMaterializeCollections(Analyzer analyzer) throws AnalysisException {
+    for (Expr expr: resultExprs_) {
+      Preconditions.checkState(!expr.getType().isStructType());
+      if (expr.getType().isCollectionType()) {
+        // Currently only SlotRef can return a collection
+        Preconditions.checkState(expr instanceof SlotRef);
+        SlotRef slotRef = (SlotRef) expr;
+        materializeSlotDesc(analyzer, slotRef.getDesc(), slotRef.getType());
+      }
+    }
+  }
+
+  /**
+   * Recursively materialize SlotDescriptor 'slotDesc'.
+   * This is only non-trivial for collection types, for which it recursively processes
+   * all the slot and tuple descriptors, depending on the types.
+   */
+  private void materializeSlotDesc(Analyzer analyzer, SlotDescriptor slotDesc, Type type)
+      throws AnalysisException {
+    Preconditions.checkArgument(!type.isStructType());
+    if (type.isCollectionType()) {
+      TupleDescriptor tupleDesc = analyzer.getDescTbl()
+          .createTupleDescriptor(getClass().getSimpleName()
+              + " " + slotDesc.getPath());
+      tupleDesc.setPath(slotDesc.getPath());
+      slotDesc.setItemTupleDesc(tupleDesc);
+      StructType structType = Path.getTypeAsStruct(type);
+      for (StructField f: structType.getFields()) {
+        // Skip the "pos" field for array
+        if (isArrayPosField(structType, f)) continue;
+        materializeTupleDesc(analyzer, tupleDesc, tupleDesc.getPath(),
+            f.getName(), f.getType());
+      }
+
+      tupleDesc.materializeSlots();
+      tupleDesc.computeMemLayout();
+    }
+  }
+
+  /**
+   * Materialize a particular field 'fieldName' of 'fieldType' for 'rootDesc'.
+   */
+  private void materializeTupleDesc(Analyzer analyzer, TupleDescriptor rootDesc,
+      Path rootPath, String fieldName, Type fieldType) throws AnalysisException {
+    Path path = Path.createRelPath(rootPath, fieldName);
+    Preconditions.checkState(path.resolve());
+    if (!fieldType.isStructType()) {
+      SlotDescriptor slotDesc = analyzer_.addSlotDescriptor(rootDesc);
+      slotDesc.setPath(path);
+      materializeSlotDesc(analyzer, slotDesc, fieldType);
+    } else {
+      StructType structType = (StructType) fieldType;
+      for (StructField f: structType.getFields()) {
+        materializeTupleDesc(analyzer, rootDesc, path, f.getName(), f.getType());
+      }
+    }
+  }
+
+  /**
+   * Check whether the 'structType' is an ArrayStructType AND whether
+   * the field 'f' is the optional field (pos).
+   */
+  private boolean isArrayPosField(StructType structType, StructField f) {
+    if (structType instanceof CollectionStructType) {
+      CollectionStructType cst = (CollectionStructType) structType;
+      return cst.isArrayStruct() && cst.getOptionalField() != f;
+    }
+    return false;
   }
 
   /**
@@ -397,7 +528,7 @@ public class SelectStmt extends QueryStmt {
    * complex-typed fields because those are currently illegal in any select
    * list (even for inline views, etc.)
    */
-  private void expandStar(Analyzer analyzer) throws AnalysisException {
+  private void expandStar(Analyzer analyzer, boolean fullyExpand) throws AnalysisException {
     if (tableRefs_.isEmpty()) {
       throw new AnalysisException("'*' expression in select list requires FROM clause.");
     }
@@ -406,7 +537,7 @@ public class SelectStmt extends QueryStmt {
       if (analyzer.isSemiJoined(tableRef.getId())) continue;
       Path resolvedPath = new Path(tableRef.getDesc(), Collections.<String>emptyList());
       Preconditions.checkState(resolvedPath.resolve());
-      expandStar(resolvedPath, analyzer);
+      expandStar(resolvedPath, analyzer, fullyExpand);
     }
   }
 
@@ -414,7 +545,7 @@ public class SelectStmt extends QueryStmt {
    * Expand "path.*" from a resolved path, ignoring complex-typed fields because those
    * are currently illegal in any select list (even for inline views, etc.)
    */
-  private void expandStar(Path resolvedPath, Analyzer analyzer)
+  private void expandStar(Path resolvedPath, Analyzer analyzer, boolean fullyExpand)
       throws AnalysisException {
     Preconditions.checkState(resolvedPath.isResolved());
     if (resolvedPath.destTupleDesc() != null &&
@@ -425,7 +556,13 @@ public class SelectStmt extends QueryStmt {
       TupleDescriptor tupleDesc = resolvedPath.destTupleDesc();
       Table table = tupleDesc.getTable();
       for (Column c: table.getColumnsInHiveOrder()) {
-        addStarResultExpr(resolvedPath, analyzer, c.getName());
+        if (c.getType().isStructType() && fullyExpand) {
+          Path p = Path.createRelPath(resolvedPath, c.getName());
+          Preconditions.checkState(p.resolve());
+          expandStar(p, analyzer, fullyExpand);
+        } else {
+          addStarResultExpr(resolvedPath, analyzer, fullyExpand, c.getName());
+        }
       }
     } else {
       // The resolved path does not target the descriptor of a catalog table.
@@ -433,7 +570,6 @@ public class SelectStmt extends QueryStmt {
       Preconditions.checkState(resolvedPath.destType().isStructType());
       StructType structType = (StructType) resolvedPath.destType();
       Preconditions.checkNotNull(structType);
-
       // Star expansion for references to nested collections.
       // Collection Type                    Star Expansion
       // array<int>                     --> item
@@ -443,23 +579,31 @@ public class SelectStmt extends QueryStmt {
       if (structType instanceof CollectionStructType) {
         CollectionStructType cst = (CollectionStructType) structType;
         if (cst.isMapStruct()) {
-          addStarResultExpr(resolvedPath, analyzer, Path.MAP_KEY_FIELD_NAME);
+          addStarResultExpr(resolvedPath, analyzer, fullyExpand, Path.MAP_KEY_FIELD_NAME);
         }
         if (cst.getOptionalField().getType().isStructType()) {
           structType = (StructType) cst.getOptionalField().getType();
           for (StructField f: structType.getFields()) {
-            addStarResultExpr(
-                resolvedPath, analyzer, cst.getOptionalField().getName(), f.getName());
+            addStarResultExpr(resolvedPath, analyzer, fullyExpand,
+                cst.getOptionalField().getName(), f.getName());
           }
         } else if (cst.isMapStruct()) {
-          addStarResultExpr(resolvedPath, analyzer, Path.MAP_VALUE_FIELD_NAME);
+          addStarResultExpr(resolvedPath, analyzer, fullyExpand,
+              Path.MAP_VALUE_FIELD_NAME);
         } else {
-          addStarResultExpr(resolvedPath, analyzer, Path.ARRAY_ITEM_FIELD_NAME);
+          addStarResultExpr(resolvedPath, analyzer, fullyExpand,
+              Path.ARRAY_ITEM_FIELD_NAME);
         }
       } else {
         // Default star expansion.
-        for (StructField f: structType.getFields()) {
-          addStarResultExpr(resolvedPath, analyzer, f.getName());
+        for (StructField f : structType.getFields()) {
+          if (f.getType().isStructType() && fullyExpand) {
+            Path p = Path.createRelPath(resolvedPath, f.getName());
+            Preconditions.checkState(p.resolve());
+            expandStar(p, analyzer, fullyExpand);
+          } else {
+            addStarResultExpr(resolvedPath, analyzer, fullyExpand, f.getName());
+          }
         }
       }
     }
@@ -469,13 +613,15 @@ public class SelectStmt extends QueryStmt {
    * Helper function used during star expansion to add a single result expr
    * based on a given raw path to be resolved relative to an existing path.
    * Ignores paths with a complex-typed destination because they are currently
-   * illegal in any select list (even for inline views, etc.)
+   * illegal in any select list (even for inline views, etc.).
+   * If 'fullyExpand' is true, this will add complex-typed exprs to 'resultExprs_'
+   * as well.
    */
   private void addStarResultExpr(Path resolvedPath, Analyzer analyzer,
-      String... relRawPath) throws AnalysisException {
+      boolean fullyExpand, String... relRawPath) throws AnalysisException {
     Path p = Path.createRelPath(resolvedPath, relRawPath);
     Preconditions.checkState(p.resolve());
-    if (p.destType().isComplexType()) return;
+    if (p.destType().isComplexType() && !fullyExpand) return;
     SlotDescriptor slotDesc = analyzer.registerSlotRef(p);
     SlotRef slotRef = new SlotRef(slotDesc);
     slotRef.analyze(analyzer);

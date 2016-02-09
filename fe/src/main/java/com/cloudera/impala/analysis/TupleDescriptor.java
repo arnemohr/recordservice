@@ -107,7 +107,6 @@ public class TupleDescriptor {
   public void setPath(Path p) {
     Preconditions.checkNotNull(p);
     Preconditions.checkState(p.isResolved());
-    Preconditions.checkState(p.destType().isCollectionType());
     path_ = p;
     if (p.destTable() != null) {
       // Do not use Path.getTypeAsStruct() to only allow implicit path resolutions,

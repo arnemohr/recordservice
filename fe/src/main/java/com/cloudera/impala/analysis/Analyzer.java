@@ -17,7 +17,6 @@ package com.cloudera.impala.analysis;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
@@ -2494,8 +2493,8 @@ public class Analyzer {
   /**
    * Return true if using RecordServiceCatalog.
    */
-  private boolean isRecordService() throws AnalysisException {
-    return getCatalog() instanceof RecordServiceCatalog;
+  public boolean isRecordService() throws AnalysisException {
+    return getQueryCtx().is_record_service_request;
   }
 
   /**
