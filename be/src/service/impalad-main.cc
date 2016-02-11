@@ -59,10 +59,14 @@ DEFINE_int32(test_service_port, 0, "Port to start test service on. 0 to not star
 
 DEFINE_string(minidump_path, "/tmp/minidumps",
     "Directory to output minidumps on crash. If empty, minidumps is disabled.");
+DEFINE_int32(minidump_size_limit_bytes, 10240,
+    "File size limit (bytes) for minidumps. If it is negative, there will be no limit.");
 
 int main(int argc, char** argv) {
   InitCommonRuntime(argc, argv, true);
-  if (FLAGS_minidump_path.size() > 0) RegisterMinidump(FLAGS_minidump_path.c_str());
+  if (FLAGS_minidump_path.size() > 0) {
+    RegisterMinidump(FLAGS_minidump_path.c_str(), FLAGS_minidump_size_limit_bytes);
+  }
 
   LlvmCodeGen::InitializeLlvm();
   JniUtil::InitLibhdfs();

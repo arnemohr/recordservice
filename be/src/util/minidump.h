@@ -71,9 +71,10 @@ namespace minidump {
   extern QueryLog QUERY_LOG;
 }
 
-// Registers a minidump handler to generate breakpad minidumps to path.
+// Registers a minidump handler to generate breakpad minidumps to path, and sets the file
+// size limit (bytes) for minidumps. If size_limit is negative, there will be no limit.
 // See https://code.google.com/p/google-breakpad/ for more details.
-void RegisterMinidump(const char* path);
+void RegisterMinidump(const char* path, const int size_limit_bytes);
 
 }
 

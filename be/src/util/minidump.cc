@@ -35,18 +35,23 @@ static bool DumpCallback(const google_breakpad::MinidumpDescriptor& descriptor,
   return succeeded;
 }
 
-void RegisterMinidump(const char* path) {
+void RegisterMinidump(const char* path, const int size_limit_bytes) {
   // This needs to be a singleton.
   static bool registered = false;
   assert(!registered);
   registered = true;
-  LOG(INFO) << "Registering minidump handler. Minidump directory: " << path;
+  LOG(INFO) << "Registering minidump handler. Minidump directory: " << path
+      << ", size limit: " << size_limit_bytes;
 
   // Create the directory if it is not there. The minidump doesn't get written
   // if there is no directory.
   boost::filesystem::create_directories(path);
 
   google_breakpad::MinidumpDescriptor desc(path);
+
+  // Set the file size limit for minidumps. If size_limit_bytes is negative, there will
+  // be no limit.
+  desc.set_size_limit(size_limit_bytes);
 
   // Intentionally leaked. We want this to have the lifetime of the process.
   google_breakpad::ExceptionHandler* eh =

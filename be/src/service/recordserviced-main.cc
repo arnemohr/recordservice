@@ -52,10 +52,14 @@ DECLARE_int32(recordservice_worker_port);
 
 DEFINE_string(minidump_path, "/tmp/minidumps",
     "Directory to output minidumps on crash. If empty, minidumps is disabled.");
+DEFINE_int32(minidump_size_limit_bytes, 10240,
+    "File size limit (bytes) for minidumps. If it is negative, there will be no limit.");
 
 int main(int argc, char** argv) {
   InitCommonRuntime(argc, argv, true, true);
-  if (FLAGS_minidump_path.size() > 0) RegisterMinidump(FLAGS_minidump_path.c_str());
+  if (FLAGS_minidump_path.size() > 0) {
+    RegisterMinidump(FLAGS_minidump_path.c_str(), FLAGS_minidump_size_limit_bytes);
+  }
 
   bool running_planner = FLAGS_recordservice_planner_port != 0;
   bool running_worker = FLAGS_recordservice_worker_port != 0;
