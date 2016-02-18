@@ -84,6 +84,7 @@ if [ ! -d "${HADOOP_CONF_DIR}" ]; then
 fi
 
 export USER=recordservice
+export SENTRY_CONF_DIR=${CONF_DIR}/sentry-conf
 
 env
 
@@ -129,19 +130,29 @@ add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
 add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
 
 SENTRY_CONFIG_FILE=
-# Generate sentry-site.xml if SENTRY_CONFIG is not empty.
-if [[ -n ${SENTRY_CONFIG} ]]; then
-  TMP_FILE="${CONF_DIR}/tmp-sentry-conf-file"
-  touch ${TMP_FILE}
-  echo "<configuration>" > ${TMP_FILE}
-  echo ${SENTRY_CONFIG} >> ${TMP_FILE}
-  echo "</configuration>" >> ${TMP_FILE}
+# Use the sentry client config: sentry-site.xml under ${CONF_DIR}/sentry-conf.
+if [[ -f ${SENTRY_CONF_DIR}/sentry-site.xml ]]; then
+  SENTRY_CONFIG_FILE=${SENTRY_CONF_DIR}/sentry-site.xml
+  log "SENTRY_CONFIG_FILE: ${SENTRY_CONFIG_FILE}"
+fi
 
-  SENTRY_CONFIG_FILE="${CONF_DIR}/sentry-site.xml"
+# Append to sentry-site.xml if SENTRY_CONFIG is not empty.
+if [[ -n ${SENTRY_CONFIG} ]]; then
+  # create sentry-site.xml under ${CONF_DIR} if ${SENTRY_CONFIG_FILE} is empty.
+  if [[ ! -n ${SENTRY_CONFIG_FILE} ]]; then
+    TMP_FILE="${CONF_DIR}/sentry-site.xml"
+    touch ${TMP_FILE}
+    echo "<configuration>" > ${TMP_FILE}
+    echo "</configuration>" >> ${TMP_FILE}
+    SENTRY_CONFIG_FILE=${TMP_FILE}
+    log "SENTRY_CONFIG_FILE: ${SENTRY_CONFIG_FILE}"
+  fi
+  CONF_END="</configuration>"
+  TMP_FILE="${CONF_DIR}/tmp-sentry-site"
+  cat ${SENTRY_CONFIG_FILE} | sed "s#${CONF_END}#${SENTRY_CONFIG}#g" > ${TMP_FILE}
   cp ${TMP_FILE} ${SENTRY_CONFIG_FILE}
   rm -f ${TMP_FILE}
-
-  log "SENTRY_CONFIG_FILE: ${SENTRY_CONFIG_FILE}"
+  echo ${CONF_END} >> ${SENTRY_CONFIG_FILE}
 fi
 
 ARGS="\
