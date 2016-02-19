@@ -152,13 +152,16 @@ case $CMD in
       CONF_VALUE=${CONF_VALUE:1}
       add_to_recordservice_conf ${CONF_KEY} ${CONF_VALUE}
       add_to_spark_conf ${CONF_KEY} ${CONF_VALUE}
-      # Append HDFS_CONFIG to hdfs-site.xml.
-      append_to_hdfs_site
-      # Add zk quorum to hdfs-site.xml
-      add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
-      # FIXME this is not secure.
-      add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
     fi
+    # Add zk quorum to hdfs-site.xml
+    add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
+    # FIXME this is not secure.
+    add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
+    # Enable short circuit read in hdfs-site.xml.
+    add_to_hdfs_site dfs.client.read.shortcircuit true
+    # Append HDFS_CONFIG to hdfs-site.xml.
+    # This can overwrite the original value.
+    append_to_hdfs_site
   ;;
   (*)
     log "Don't understand [$CMD]"

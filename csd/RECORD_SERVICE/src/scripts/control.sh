@@ -113,7 +113,15 @@ log "sentry_config: ${SENTRY_CONFIG}"
 log "advanced_config: ${ADVANCED_CONFIG}"
 log "hdfs_config: ${HDFS_CONFIG}"
 
+# Add zk quorum to hdfs-site.xml
+add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
+# FIXME this is not secure.
+add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
+# Enable short circuit read in hdfs-site.xml
+add_to_hdfs_site dfs.client.read.shortcircuit true
+
 # Append to hdfs-site.xml if HDFS_CONFIG is not empty.
+# This can overwrite the original value.
 if [[ -n ${HDFS_CONFIG} ]]; then
   FILE=`find ${HADOOP_CONF_DIR} -name hdfs-site.xml`
   CONF_END="</configuration>"
@@ -123,11 +131,6 @@ if [[ -n ${HDFS_CONFIG} ]]; then
   rm -f ${TMP_FILE}
   echo ${CONF_END} >> ${FILE}
 fi
-
-# Add zk quorum to hdfs-site.xml
-add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
-# FIXME this is not secure.
-add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
 
 SENTRY_CONFIG_FILE=
 # Use the sentry client config: sentry-site.xml under ${CONF_DIR}/sentry-conf.
