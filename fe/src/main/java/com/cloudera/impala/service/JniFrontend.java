@@ -748,7 +748,12 @@ public class JniFrontend {
     StringBuilder output = new StringBuilder();
     output.append(checkLogFilePermission());
     output.append(checkFileSystem(CONF));
-    output.append(checkShortCircuitRead(CONF));
+    if (isDataNode()) {
+      output.append(checkShortCircuitRead(CONF));
+    } else {
+      LOG.info("Service is not running on a DataNode. Skippping short circuit read "
+          + "configuration checks.");
+    }
     output.append(checkBlockLocationTracking(CONF));
     return output.toString();
   }
@@ -899,5 +904,32 @@ public class JniFrontend {
           ". Error was: \n" + e.getMessage();
     }
     return "";
+  }
+
+  /**
+   * return true if the current node also acts as a DataNode.
+   * TODO: Find a better way to check the DataNode process.
+   */
+  private boolean isDataNode() {
+    Process process = null;
+    try {
+      String[] cmd = {"/usr/bin/env", "-c", "ps -ef | grep hadoop | grep -P datanode"};
+      process = new ProcessBuilder(cmd).start();
+      BufferedReader reader =
+          new BufferedReader(new InputStreamReader(process.getInputStream()));
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (!line.contains(cmd[2])) {
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      LOG.error("Got exception when checking the DataNode Process", e);
+    } finally {
+      if (process != null) {
+        process.destroy();
+      }
+    }
+    return false;
   }
 }
