@@ -155,8 +155,6 @@ case $CMD in
     fi
     # Add zk quorum to hdfs-site.xml
     add_to_hdfs_site recordservice.zookeeper.connectString ${ZK_QUORUM}
-    # FIXME this is not secure.
-    add_to_hdfs_site recordservice.zookeeper.acl world:anyone:cdrwa
     # Enable short circuit read in hdfs-site.xml.
     add_to_hdfs_site dfs.client.read.shortcircuit true
     # Append HDFS_CONFIG to hdfs-site.xml.

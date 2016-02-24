@@ -78,19 +78,17 @@ public class ZooKeeperSession implements Closeable {
       "recordservice..zookeeper.connectTimeoutMillis";
 
   // Root zookeeper directory.
-  public static final String ZOOKEEPER_ZNODE_CONF =
-      "recordservice.zookeeper.znode";
+  public static final String ZOOKEEPER_ZNODE_CONF = "recordservice.zookeeper.znode";
   public static final String ZOOKEEPER_ZNODE_DEFAULT = "/recordservice";
 
-  // Acl to use when creating znodes
-  public static final String ZOOKEEPER_STORE_ACL_CONF =
-      "recordservice.zookeeper.acl";
+  // Acl to use when creating znodes, including planner, worker or delegation tokens.
+  public static final String ZOOKEEPER_STORE_ACL_CONF = "recordservice.zookeeper.acl";
 
-  // Kerberos settings.
-  public static final String RECORD_SERVICE_SERVER_PRINCIPAL_CONF =
-      "recordservice.server.kerberos.principal";
-  public static final String RECORD_SERVICE_SERVER_KEY_TAB_CONF =
-      "recordservice.server.kerberos.keytab.file";
+  // Extra Acl to use for the "planners" directory. In default this is set to
+  // be {@link Ids#READ_ACL_UNSAFE} to allow planner membership discovery. One can
+  // set it to be empty to disallow such.
+  public static final String ZOOKEEPER_STORE_PLANNERS_ACL_CONF
+      = "recordservice.zookeeper.planners.acl";
 
   // Zookeeper directory locations
   private static final String PLANNER_MEMBERSHIP_ZNODE = "planners";
@@ -131,7 +129,10 @@ public class ZooKeeperSession implements Closeable {
   private final List<NewSessionCb> newSessionsCbs_ = Lists.newArrayList();
 
   // ACLs to use when creating new znodes.
-  private List<ACL> newNodeAcl_ = Arrays.asList(new ACL(Perms.ALL, Ids.AUTH_IDS));
+  private List<ACL> newNodeAcl_;
+
+  // ACLs to use when creating new znodes for the "planners" dir.
+  private List<ACL> plannersAcl_;
 
   // ID for this service.
   private final String id_;
@@ -155,22 +156,39 @@ public class ZooKeeperSession implements Closeable {
   };
 
   /**
-   * Connects to zookeeper and handles maintaining membership.
+   * Connects to zookeeper and handles maintaining membership, without Kerberos.
    * Note: this can only be called when either planner or worker is running.
+   * The client of this class is responsible for checking that.
    * @param conf
    * @param id - The ID for this server. This should be unique among
    *    all instances of the service.
    * @param plannerPort - If greater than 0, running the planner service.
    * @param workerPort - If greater than 0, running the worker service.
    */
-  public ZooKeeperSession(Configuration conf, String id, int plannerPort,
-      int workerPort) throws IOException {
+  public ZooKeeperSession(Configuration conf, String id,
+      int plannerPort, int workerPort) throws IOException {
+    this(conf, id, null, null, plannerPort, workerPort);
+  }
+
+  /**
+   * Connects to zookeeper and handles maintaining membership.
+   * Note: this can only be called when either planner or worker is running.
+   * The client of this class is responsible for checking that.
+   * @param conf
+   * @param id - The ID for this server. This should be unique among
+   *    all instances of the service.
+   * @param principal - The Kerberos principal to use. If not null and not empty,
+   *    ZooKeeper nodes will be secured with Kerberos.
+   * @param keytabPath - The path to the keytab file. Only used when a valid
+   *    principal is provided.
+   * @param plannerPort - If greater than 0, running the planner service.
+   * @param workerPort - If greater than 0, running the worker service.
+   */
+  public ZooKeeperSession(Configuration conf, String id, String principal,
+      String keytabPath, int plannerPort, int workerPort) throws IOException {
     id_ = id;
     plannerPort_ = plannerPort;
     workerPort_ = workerPort;
-    Preconditions.checkArgument(runningPlanner() || runningWorker(),
-        "ZooKeeperSession cannot be initialized when neither" +
-            " planner nor worker is running. ");
 
     zkConnectString_ = conf.get(ZOOKEEPER_CONNECTION_STRING_CONF);
     if (zkConnectString_ == null || zkConnectString_.trim().isEmpty()) {
@@ -184,15 +202,28 @@ public class ZooKeeperSession implements Closeable {
         conf.getInt(ZOOKEEPER_CONNECT_TIMEOUTMILLIS_CONF,
             CuratorFrameworkFactory.builder().getConnectionTimeoutMs());
 
+    if (principal != null && !principal.isEmpty()) {
+      newNodeAcl_ = Ids.CREATOR_ALL_ACL;
+    } else {
+      newNodeAcl_ = Ids.OPEN_ACL_UNSAFE;
+    }
+
     String aclStr = conf.get(ZOOKEEPER_STORE_ACL_CONF, null);
     LOGGER.info("Zookeeper acl: " + aclStr);
     if (StringUtils.isNotBlank(aclStr)) newNodeAcl_ = parseACLs(aclStr);
 
+    plannersAcl_ = Ids.READ_ACL_UNSAFE;
+    String plannersAclStr = conf.get(ZOOKEEPER_STORE_PLANNERS_ACL_CONF, null);
+    LOGGER.info("Zookeeper planners acl: " + plannersAclStr);
+    if (plannersAclStr != null) plannersAcl_ = parseACLs(plannersAclStr);
+
     rootNode_ = conf.get(ZOOKEEPER_ZNODE_CONF, ZOOKEEPER_ZNODE_DEFAULT);
     LOGGER.info("Zookeeper root: " + rootNode_);
 
-    // Install the JAAS Configuration for the runtime
-    setupJAASConfig(conf);
+    // Install the JAAS Configuration for the runtime, if Kerberos is enabled.
+    if (principal != null && !principal.isEmpty()) {
+      setupJAASConfig(principal, keytabPath);
+    }
     initMembershipPaths();
   }
 
@@ -361,6 +392,18 @@ public class ZooKeeperSession implements Closeable {
   }
 
   /**
+   * Set ACL for 'path' to be 'acl. Throws IOException if error happens.
+   */
+  public void zkSetACL(String path, List<ACL> acl) throws IOException {
+    try {
+      CuratorFramework zk = getSession();
+      zk.setACL().withACL(acl).forPath(path);
+    } catch (Exception e) {
+      throw new IOException("Error setting acl " + acl + " for path " + path, e);
+    }
+  }
+
+  /**
    * Updates the worker or planner membership, including calling into the BE.
    */
   private void updateMembership(TMembershipUpdateType type,
@@ -490,6 +533,9 @@ public class ZooKeeperSession implements Closeable {
    */
   private void initMembershipPaths() throws IOException {
     ensurePath(getRelativePath(PLANNER_MEMBERSHIP_ZNODE), newNodeAcl_);
+    List<ACL> acl = new ArrayList<ACL>(newNodeAcl_);
+    acl.addAll(plannersAcl_);
+    zkSetACL(getRelativePath(PLANNER_MEMBERSHIP_ZNODE), acl);
     ensurePath(getRelativePath(WORKER_MEMBERSHIP_ZNODE), newNodeAcl_);
   }
 
@@ -606,20 +652,18 @@ public class ZooKeeperSession implements Closeable {
   /**
    * Setup configuration to connect to Zookeeper using kerberos.
    */
-  private void setupJAASConfig(Configuration conf) throws IOException {
-    String principal = conf.get(RECORD_SERVICE_SERVER_PRINCIPAL_CONF);
-    if (principal != null) {
-      String keytab = conf.get(RECORD_SERVICE_SERVER_KEY_TAB_CONF);
-      if (keytab == null || keytab.trim().isEmpty()) {
-        throw new IOException("Keytab must be set to connect using kerberos.");
-      }
-      System.setProperty(
-          ZooKeeperSaslClient.LOGIN_CONTEXT_NAME_KEY, SASL_LOGIN_CONTEXT_NAME);
-      principal = SecurityUtil.getServerPrincipal(principal, "0.0.0.0");
-      JaasConfiguration jaasConf =
-          new JaasConfiguration(SASL_LOGIN_CONTEXT_NAME, principal, keytab);
-      // Install the Configuration in the runtime.
-      javax.security.auth.login.Configuration.setConfiguration(jaasConf);
+  private void setupJAASConfig(String principal, String keytab) throws IOException {
+    Preconditions.checkArgument(principal != null && !principal.isEmpty());
+    if (keytab == null || keytab.trim().isEmpty()) {
+      throw new IOException("Keytab must be set to connect using kerberos.");
     }
+    LOGGER.debug("Authenticating with principal {} and keytab {}", principal, keytab);
+    System.setProperty(
+        ZooKeeperSaslClient.LOGIN_CONTEXT_NAME_KEY, SASL_LOGIN_CONTEXT_NAME);
+    principal = SecurityUtil.getServerPrincipal(principal, "0.0.0.0");
+    JaasConfiguration jaasConf =
+        new JaasConfiguration(SASL_LOGIN_CONTEXT_NAME, principal, keytab);
+    // Install the Configuration in the runtime.
+    javax.security.auth.login.Configuration.setConfiguration(jaasConf);
   }
 }
