@@ -372,6 +372,16 @@ Status HdfsScanNode::Prepare(RuntimeState* state) {
   tuple_desc_ = state->desc_tbl().GetTupleDescriptor(tuple_id_);
   DCHECK(tuple_desc_ != NULL);
 
+  // Check if the mem_limit is enough for at least one row batch.
+  TQueryOptions query_options = state->query_ctx().request.query_options;
+  if (query_options.__isset.mem_limit && query_options.mem_limit > 0
+      && tuple_desc_->byte_size() > query_options.mem_limit) {
+    stringstream ss;
+    ss << "Memory limit exceeded: mem_limit should be at least "
+       << tuple_desc_->byte_size();
+    return Status(TErrorCode::MEM_LIMIT_EXCEEDED, ss.str());;
+  }
+
   // Prepare collection conjuncts
   ConjunctsMap::const_iterator iter = conjuncts_map_.begin();
   for (; iter != conjuncts_map_.end(); ++iter) {

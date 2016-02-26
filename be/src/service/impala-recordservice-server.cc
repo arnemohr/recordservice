@@ -1363,6 +1363,8 @@ void ImpalaServer::ExecTask(recordservice::TExecTaskResult& return_val,
     query_request.query_ctx.request.query_options.__set_batch_size(
         task_state->fetch_size);
     if (req.__isset.mem_limit) {
+      // TODO: Check if mem_limit set by client is not smaller than per_host_mem_req,
+      // when the estimation of per_host_mem_req is accurate.
       // FIXME: this needs much more testing.
       query_request.query_ctx.request.query_options.__set_mem_limit(req.mem_limit);
     }
@@ -1403,7 +1405,14 @@ void ImpalaServer::ExecTask(recordservice::TExecTaskResult& return_val,
     shared_ptr<QueryExecState> exec_state;
     status = ExecuteRecordServiceRequest(&query_request.query_ctx,
         &exec_req, session_handle.get(), &exec_state);
+
     if (!status.ok()) {
+      if (status.IsMemLimitExceeded()) {
+        ThrowRecordServiceException(recordservice::TErrorCode::OUT_OF_MEMORY,
+            "Could not execute task.",
+            status.msg().GetFullMessageDetails());
+      }
+
       ThrowRecordServiceException(recordservice::TErrorCode::INVALID_TASK,
           "Could not execute task.",
           status.msg().GetFullMessageDetails());
