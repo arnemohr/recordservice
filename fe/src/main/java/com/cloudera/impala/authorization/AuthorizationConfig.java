@@ -30,9 +30,11 @@ public class AuthorizationConfig {
   private final String policyFile_;
   private final SentryConfig sentryConfig_;
   private final String policyProviderClassName_;
+  private final boolean loadAllFromSentrySite_;
 
   /**
    * Creates a new authorization configuration object.
+   * Only be called when loading all configurations from sentry-site.xml.
    * @param sentryConfigFile - Absolute path and file name of the sentry service.
    */
   public AuthorizationConfig(String sentryConfigFile) {
@@ -42,6 +44,7 @@ public class AuthorizationConfig {
     serverName_ = conf.get(SentryConfig.AUTHZ_SERVER_NAME, "");
     policyFile_ = conf.get(SentryConfig.AUTHZ_PROVIDER_RESOURCE, "");
     policyProviderClassName_ = conf.get(SentryConfig.AUTHZ_PROVIDER, "");
+    loadAllFromSentrySite_ = true;
   }
 
   /**
@@ -61,6 +64,7 @@ public class AuthorizationConfig {
       policyProviderClassName = policyProviderClassName.trim();
     }
     policyProviderClassName_ = policyProviderClassName;
+    loadAllFromSentrySite_ = false;
   }
 
   /**
@@ -95,11 +99,21 @@ public class AuthorizationConfig {
     }
 
     if (Strings.isNullOrEmpty(serverName_)) {
+      if (loadAllFromSentrySite_) {
+        throw new IllegalArgumentException("Authorization is enabled but cannot find "
+            + SentryConfig.AUTHZ_SERVER_NAME + " property in "
+            + sentryConfig_.getConfigFile());
+      }
       throw new IllegalArgumentException(
           "Authorization is enabled but the server name is null or empty. Set the " +
           "server name using the impalad --server_name flag.");
     }
     if (Strings.isNullOrEmpty(policyProviderClassName_)) {
+      if (loadAllFromSentrySite_) {
+        throw new IllegalArgumentException("Authorization is enabled but the " +
+          "authorization policy provider class name is null or empty. Set " +
+          SentryConfig.AUTHZ_PROVIDER_RESOURCE + " in " + sentryConfig_.getConfigFile());
+      }
       throw new IllegalArgumentException("Authorization is enabled but the " +
           "authorization policy provider class name is null or empty. Set the class " +
           "name using the --authorization_policy_provider_class impalad flag.");

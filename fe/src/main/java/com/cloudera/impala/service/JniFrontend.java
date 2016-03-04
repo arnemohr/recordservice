@@ -164,9 +164,11 @@ public class JniFrontend {
     }
     authConfig.validateConfig();
     if (authConfig.isEnabled()) {
-      LOG.info(String.format("Authorization is 'ENABLED' using %s",
-          authConfig.isFileBasedPolicy() ? " file based policy from: " +
-          authConfig.getPolicyFile() : " using Sentry Policy Service."));
+      LOG.info(String.format("Authorization is 'ENABLED' with server name: %s, config "
+          + "file: %s, using %s", authConfig.getServerName(),
+          authConfig.getSentryConfig().getConfigFile(),
+          authConfig.isFileBasedPolicy() ? "file based policy from: " +
+          authConfig.getPolicyFile() : "Sentry Policy Service."));
     } else {
       LOG.info("Authorization is 'DISABLED'.");
     }
