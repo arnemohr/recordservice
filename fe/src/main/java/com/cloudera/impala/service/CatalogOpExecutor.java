@@ -255,6 +255,20 @@ public class CatalogOpExecutor {
       default: throw new IllegalStateException("Unexpected DDL exec request type: " +
           ddlRequest.ddl_type);
     }
+
+    // For responses that contain updates to catalog objects, check that the response
+    // either exclusively uses the single updated/removed field or the corresponding list
+    // versions of the fields, but not a mix.
+    // The non-list version of the fields are maintained for backwards compatibility,
+    // e.g., BDR relies on a stable catalog API.
+    TCatalogUpdateResult result = response.getResult();
+    Preconditions.checkState(!
+        ((result.isSetUpdated_catalog_object_DEPRECATED()
+        || result.isSetRemoved_catalog_object_DEPRECATED())
+        &&
+        (result.isSetUpdated_catalog_objects()
+        || result.isSetRemoved_catalog_objects())));
+
     // At this point, the operation is considered successful. If any errors occurred
     // during execution, this function will throw an exception and the CatalogServer
     // will handle setting a bad status code.
@@ -286,9 +300,9 @@ public class CatalogOpExecutor {
             params.getTable_name()), addPartParams.getPartition_spec(),
             addPartParams.isIf_not_exists(), addPartParams.getLocation(),
             addPartParams.getCache_op());
-        response.result.setUpdated_catalog_object(TableToTCatalogObject(refreshedTable));
+        response.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTable));
         response.result.setVersion(
-            response.result.getUpdated_catalog_object().getCatalog_version());
+            response.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
         return;
       case DROP_COLUMN:
         TAlterTableDropColParams dropColParams = params.getDrop_col_params();
@@ -309,9 +323,9 @@ public class CatalogOpExecutor {
         refreshedTable = alterTableDropPartition(TableName.fromThrift(
             params.getTable_name()), dropPartParams.getPartition_spec(),
             dropPartParams.isIf_exists(), dropPartParams.isPurge());
-        response.result.setUpdated_catalog_object(TableToTCatalogObject(refreshedTable));
+        response.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTable));
         response.result.setVersion(
-            response.result.getUpdated_catalog_object().getCatalog_version());
+            response.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
         return;
       case RENAME_TABLE:
       case RENAME_VIEW:
@@ -367,9 +381,9 @@ public class CatalogOpExecutor {
     }
 
     Table refreshedTable = catalog_.reloadTable(params.getTable_name());
-    response.result.setUpdated_catalog_object(TableToTCatalogObject(refreshedTable));
+    response.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTable));
     response.result.setVersion(
-        response.result.getUpdated_catalog_object().getCatalog_version());
+        response.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
   }
 
   /**
@@ -377,10 +391,9 @@ public class CatalogOpExecutor {
    * version of the serialized table as the version of the catalog update result.
    */
   private static void addTableToCatalogUpdate(Table tbl, TCatalogUpdateResult result) {
-    List<TCatalogObject> updatedObjectList = Lists.newArrayList(
-        TableToTCatalogObject(tbl));
-    result.setUpdated_catalog_objects(updatedObjectList);
-    result.setVersion(updatedObjectList.get(0).getCatalog_version());
+    TCatalogObject updatedCatalogObject = TableToTCatalogObject(tbl);
+    result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(tbl));
+    result.setVersion(updatedCatalogObject.getCatalog_version());
   }
 
   /**
@@ -429,8 +442,8 @@ public class CatalogOpExecutor {
     }
 
     Table refreshedTbl = catalog_.reloadTable(tableName.toThrift());
-    resp.result.setUpdated_catalog_object(TableToTCatalogObject(refreshedTbl));
-    resp.result.setVersion(resp.result.getUpdated_catalog_object().getCatalog_version());
+    resp.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTbl));
+    resp.result.setVersion(resp.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
   }
 
   /**
@@ -718,10 +731,10 @@ public class CatalogOpExecutor {
           TCatalogObjectType.DATABASE, Catalog.INITIAL_CATALOG_VERSION);
       thriftDb.setDb(newDb.toThrift());
       thriftDb.setCatalog_version(newDb.getCatalogVersion());
-      resp.result.setUpdated_catalog_objects(Lists.newArrayList(thriftDb));
+      resp.result.setUpdated_catalog_object_DEPRECATED(thriftDb);
     }
     resp.result.setVersion(
-        resp.result.getUpdated_catalog_objects().get(0).getCatalog_version());
+        resp.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
   }
 
   private TCatalogObject buildTCatalogFnObject(Function fn) {
@@ -786,14 +799,22 @@ public class CatalogOpExecutor {
           addedFunctions.add(buildTCatalogFnObject(fn));
         }
       }
+
       if (!addedFunctions.isEmpty()) {
-        resp.result.setUpdated_catalog_objects(addedFunctions);
+        // Distinguish which result field to set based on the type of function being
+        // added for backwards compatibility. For example, BDR relies on a stable
+        // catalog Thrift API.
+        if (isPersistentJavaFn) {
+          // Only persistent Java UDFs can update multiple catalog objects.
+          resp.result.setUpdated_catalog_objects(addedFunctions);
+        } else {
+          Preconditions.checkState(addedFunctions.size() == 1);
+          resp.result.setUpdated_catalog_object_DEPRECATED(addedFunctions.get(0));
+        }
         resp.result.setVersion(catalog_.getCatalogVersion());
       }
     }
   }
-
-
 
   private void createDataSource(TCreateDataSourceParams params, TDdlExecResponse resp)
       throws ImpalaException {
@@ -814,7 +835,7 @@ public class CatalogOpExecutor {
     addedObject.setType(TCatalogObjectType.DATA_SOURCE);
     addedObject.setData_source(dataSource.toThrift());
     addedObject.setCatalog_version(dataSource.getCatalogVersion());
-    resp.result.setUpdated_catalog_objects(Lists.newArrayList(addedObject));
+    resp.result.setUpdated_catalog_object_DEPRECATED(addedObject);
     resp.result.setVersion(dataSource.getCatalogVersion());
   }
 
@@ -837,7 +858,7 @@ public class CatalogOpExecutor {
     removedObject.setType(TCatalogObjectType.DATA_SOURCE);
     removedObject.setData_source(dataSource.toThrift());
     removedObject.setCatalog_version(dataSource.getCatalogVersion());
-    resp.result.setRemoved_catalog_objects(Lists.newArrayList(removedObject));
+    resp.result.setRemoved_catalog_object_DEPRECATED(removedObject);
     resp.result.setVersion(dataSource.getCatalogVersion());
   }
 
@@ -882,9 +903,9 @@ public class CatalogOpExecutor {
     }
 
     Table refreshedTable = catalog_.reloadTable(params.getTable_name());
-    resp.result.setUpdated_catalog_object(TableToTCatalogObject(refreshedTable));
+    resp.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTable));
     resp.result.setVersion(
-        resp.result.getUpdated_catalog_object().getCatalog_version());
+        resp.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
   }
 
   /**
@@ -1016,7 +1037,7 @@ public class CatalogOpExecutor {
     removedObject.setDb(new TDatabase());
     removedObject.getDb().setDb_name(params.getDb());
     resp.result.setVersion(removedObject.getCatalog_version());
-    resp.result.setRemoved_catalog_objects(Lists.newArrayList(removedObject));
+    resp.result.setRemoved_catalog_object_DEPRECATED(removedObject);
   }
 
   /**
@@ -1079,7 +1100,7 @@ public class CatalogOpExecutor {
     removedObject.getTable().setTbl_name(tableName.getTbl());
     removedObject.getTable().setDb_name(tableName.getDb());
     removedObject.setCatalog_version(resp.result.getVersion());
-    resp.result.setRemoved_catalog_objects(Lists.newArrayList(removedObject));
+    resp.result.setRemoved_catalog_object_DEPRECATED(removedObject);
   }
 
   /**
@@ -1117,9 +1138,9 @@ public class CatalogOpExecutor {
 
     // Reload the table to pick up on the now empty directories.
     Table refreshedTbl = catalog_.reloadTable(params.getTable_name());
-    resp.getResult().setUpdated_catalog_object(TableToTCatalogObject(refreshedTbl));
+    resp.getResult().setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTbl));
     resp.getResult().setVersion(
-        resp.getResult().getUpdated_catalog_object().getCatalog_version());
+        resp.getResult().getUpdated_catalog_object_DEPRECATED().getCatalog_version());
   }
 
   private void dropFunction(TDropFunctionParams params, TDdlExecResponse resp)
@@ -1163,10 +1184,20 @@ public class CatalogOpExecutor {
           removedFunctions.add(buildTCatalogFnObject(fn));
         }
       }
-      resp.result.setVersion(catalog_.getCatalogVersion());
-      if (removedFunctions.size() > 0) {
-        resp.result.setRemoved_catalog_objects(removedFunctions);
+
+      if (!removedFunctions.isEmpty()) {
+        // Distinguish which result field to set based on the type of functions removed
+        // for backwards compatibility. For example, BDR relies on a stable catalog
+        // Thrift API.
+        if (!params.isSetSignature()) {
+          // Removing all signatures of a persistent Java UDF.
+          resp.result.setRemoved_catalog_objects(removedFunctions);
+        } else {
+          Preconditions.checkState(removedFunctions.size() == 1);
+          resp.result.setRemoved_catalog_object_DEPRECATED(removedFunctions.get(0));
+        }
       }
+      resp.result.setVersion(catalog_.getCatalogVersion());
     }
   }
 
@@ -1320,9 +1351,9 @@ public class CatalogOpExecutor {
     catalog_.getDb(newTable.getDbName()).removeTable(newTable.getTableName());
     catalog_.getDb(newTable.getDbName()).addTable(table);
 
-    response.result.setUpdated_catalog_object(TableToTCatalogObject(table));
+    response.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(table));
     response.result.setVersion(
-      response.result.getUpdated_catalog_object().getCatalog_version());
+      response.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
 
     return true;
   }
@@ -1380,9 +1411,9 @@ public class CatalogOpExecutor {
     }
 
     Table newTbl = catalog_.addTable(newTable.getDbName(), newTable.getTableName());
-    response.result.setUpdated_catalog_object(TableToTCatalogObject(newTbl));
+    response.result.setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(newTbl));
     response.result.setVersion(
-        response.result.getUpdated_catalog_object().getCatalog_version());
+        response.result.getUpdated_catalog_object_DEPRECATED().getCatalog_version());
     return true;
   }
 
@@ -1701,9 +1732,8 @@ public class CatalogOpExecutor {
     removedObject.getTable().setTbl_name(tableName.getTbl());
     removedObject.getTable().setDb_name(tableName.getDb());
     removedObject.setCatalog_version(newTable.getCatalog_version());
-    response.result.setRemoved_catalog_objects(
-        Lists.newArrayList(removedObject));
-    response.result.setUpdated_catalog_objects(Lists.newArrayList(newTable));
+    response.result.setRemoved_catalog_object_DEPRECATED(removedObject);
+    response.result.setUpdated_catalog_object_DEPRECATED(newTable);
     response.result.setVersion(newTable.getCatalog_version());
   }
 
@@ -2253,9 +2283,9 @@ public class CatalogOpExecutor {
     catalogObject.setRole(role.toThrift());
     catalogObject.setCatalog_version(role.getCatalogVersion());
     if (createDropRoleParams.isIs_drop()) {
-      resp.result.setRemoved_catalog_objects(Lists.newArrayList(catalogObject));
+      resp.result.setRemoved_catalog_object_DEPRECATED(catalogObject);
     } else {
-      resp.result.setUpdated_catalog_objects(Lists.newArrayList(catalogObject));
+      resp.result.setUpdated_catalog_object_DEPRECATED(catalogObject);
     }
     resp.result.setVersion(role.getCatalogVersion());
   }
@@ -2285,7 +2315,7 @@ public class CatalogOpExecutor {
     catalogObject.setType(role.getCatalogObjectType());
     catalogObject.setRole(role.toThrift());
     catalogObject.setCatalog_version(role.getCatalogVersion());
-    resp.result.setUpdated_catalog_objects(Lists.newArrayList(catalogObject));
+    resp.result.setUpdated_catalog_object_DEPRECATED(catalogObject);
     resp.result.setVersion(role.getCatalogVersion());
   }
 
@@ -2327,11 +2357,9 @@ public class CatalogOpExecutor {
       // from the privilege.
       if (grantRevokePrivParams.isIs_grant() ||
           privileges.get(0).isHas_grant_opt()) {
-        resp.result.setUpdated_catalog_objects(
-            Lists.newArrayList(updatedPrivs.get(0)));
+        resp.result.setUpdated_catalog_object_DEPRECATED(updatedPrivs.get(0));
       } else {
-        resp.result.setRemoved_catalog_objects(
-            Lists.newArrayList(updatedPrivs.get(0)));
+        resp.result.setRemoved_catalog_object_DEPRECATED(updatedPrivs.get(0));
       }
       resp.result.setVersion(updatedPrivs.get(0).getCatalog_version());
     } else if (updatedPrivs.size() > 1) {
@@ -2547,11 +2575,9 @@ public class CatalogOpExecutor {
           // Return the TCatalogObject in the result to indicate this request can be
           // processed as a direct DDL operation.
           if (wasRemoved) {
-            resp.getResult().setRemoved_catalog_objects(
-                Lists.newArrayList(thriftTable));
+            resp.getResult().setRemoved_catalog_object_DEPRECATED(thriftTable);
           } else {
-            resp.getResult().setUpdated_catalog_objects(
-                Lists.newArrayList(thriftTable));
+            resp.getResult().setUpdated_catalog_object_DEPRECATED(thriftTable);
           }
         } else {
           // Table does not exist in the meta store and Impala catalog, throw error.
@@ -2771,9 +2797,9 @@ public class CatalogOpExecutor {
     }
     // Perform an incremental refresh to load new/modified partitions and files.
     Table refreshedTbl = catalog_.reloadTable(tblName.toThrift());
-    response.getResult().setUpdated_catalog_object(TableToTCatalogObject(refreshedTbl));
+    response.getResult().setUpdated_catalog_object_DEPRECATED(TableToTCatalogObject(refreshedTbl));
     response.getResult().setVersion(
-        response.getResult().getUpdated_catalog_object().getCatalog_version());
+        response.getResult().getUpdated_catalog_object_DEPRECATED().getCatalog_version());
     return response;
   }
 
