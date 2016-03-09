@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env impala-python
 # Copyright (c) 2012 Cloudera, Inc. All rights reserved.
 #
 # This test suite validates hive serde scanner (HdfsHiveSerdeScanner) by running
