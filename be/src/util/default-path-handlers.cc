@@ -89,6 +89,7 @@ void MemUsageHandler(MemTracker* mem_tracker, const Webserver::ArgumentMap& args
       PrettyPrinter::Print(mem_tracker->consumption(), TUnit::BYTES).c_str(),
       document->GetAllocator());
   document->AddMember("consumption", consumption, document->GetAllocator());
+  document->AddMember("start_time", time(0), document->GetAllocator());
 
   stringstream ss;
 #ifdef ADDRESS_SANITIZER
@@ -117,6 +118,13 @@ void LockTrackerHandler(LockTracker* lock_tracker, const Webserver::ArgumentMap&
   document->AddMember("contention", v, document->GetAllocator());
 }
 
+// Registered to handle "/realtimeMem", and prints out the current time and current
+// memory consumption.
+void RealTimeMemHandler(MemTracker* mem_tracker, const Webserver::WebRequest& args,
+    stringstream* out) {
+  (*out) <<  time(0) << ":" << mem_tracker->consumption();
+}
+
 void impala::AddDefaultUrlCallbacks(
     Webserver* webserver, MemTracker* process_mem_tracker, LockTracker* lock_tracker) {
   webserver->RegisterUrlCallback("/logs", "logs.tmpl", LogsHandler);
@@ -125,6 +133,8 @@ void impala::AddDefaultUrlCallbacks(
   if (process_mem_tracker != NULL) {
     webserver->RegisterUrlCallback("/memz","memz.tmpl",
         bind<void>(&MemUsageHandler, process_mem_tracker, _1, _2));
+    webserver->RegisterUrlCallback("/realtimeMem",
+        bind<void>(&RealTimeMemHandler, process_mem_tracker, _1, _2));
   }
   if (lock_tracker != NULL) {
     webserver->RegisterUrlCallback("/locks", "locks.tmpl",
