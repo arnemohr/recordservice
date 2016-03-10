@@ -17,7 +17,8 @@ limitations under the License.
 
 <h2>Memory Usage</h2>
 
-Memory consumption / limit: <strong>{{consumption}}</strong> / <strong>{{mem_limit}}</strong>
+Memory consumption / limit: <strong>{{consumption}}</strong> / <strong class='memLimit'>{{mem_limit}}</strong>
+<p class='startTime' hidden>{{start_time}}</p>
 
 <h3>tcmalloc</h2>
 <pre>{{overview}}</pre>
@@ -27,4 +28,171 @@ Memory consumption / limit: <strong>{{consumption}}</strong> / <strong>{{mem_lim
 <pre>{{detailed}}</pre>
 {{/detailed}}
 
+<h3>Process memory</h3>
+<div align = "right"><input type="number" id="tickIntervalInMillSec" min="1000" value="1000"> millsec
+<button onclick="SetTickInterval()">SetTickInterval</button></div>
+<style>
+  .axis path, .axis line {
+    fill: none;
+    stroke: #555555;
+    shape-rendering: crispEdges;
+  }
+
+  .line {
+    fill: none;
+    stroke: orange;
+    stroke-width: 1px;
+  }
+</style>
+
+<script src="www/d3.v3.min.js"></script>
+<script type="text/javascript">
+  var startTime = parseInt(document.getElementsByClassName("startTime")[0].innerHTML);
+  // the memory limit for the RecordServiced process, and will be used for the Y axis.
+  var maxMem = parseInt(document.getElementsByClassName("memLimit")[0].innerHTML);
+  // the unit of the memory limit
+  var unit = document.getElementsByClassName("memLimit")[0].innerHTML.split(" ")[1];
+  var divisor = 1
+  if (unit === 'KB') {
+    divisor = 1024;
+  } else if (unit == 'MB') {
+    divisor = 1024 * 1024;
+  } else if (unit === 'GB') {
+    divisor = 1024 * 1024 * 1024;
+  }
+
+  // the url to send the real time mem usage request
+  var url = window.location.origin + "/realtimeMem";
+  // use the time difference of the startTime as the x axis value
+  var timeSec = -1
+  // use the memory usage as the y axis value
+  var mem = 0.0;
+  // the time window for x axis
+  var xWindow = 200;
+  var data = d3.range(xWindow).map(init);
+
+  function init() {
+    return {
+      time: timeSec = 0,
+      value: mem = 0
+    }
+  }
+
+  // A modified version of Real time d3 example (https://jsfiddle.net/peDzT/).
+  var margin = {top: 10, right: 10, bottom: 20, left: 200},
+    width = 1250 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+  var x = d3.scale.linear()
+    .domain([0, xWindow - 1])
+    .range([0, width]);
+
+  var y = d3.scale.linear()
+    .domain([0, maxMem * 1.1])
+    .range([height, 0]);
+
+  var line = d3.svg.line()
+    .x(function(d, i) { console.log(d.time); return x(d.time); })
+    .y(function(d, i) { return y(d.value); });
+
+  var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom);
+
+  var g = svg.append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var graph = g.append("svg")
+    .attr("width", width)
+    .attr("height", height + margin.top + margin.bottom);
+
+  var xAxis = d3.svg.axis().scale(x).orient("bottom");
+
+  var axis = graph.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis);
+
+  g.append("g")
+    .attr("class", "y axis")
+    .call(d3.svg.axis().scale(y).orient("left"))
+    .append('text')
+    .attr('text-anchor', 'middle')
+    .text(unit);
+
+  var path = graph.append("g")
+    .append("path")
+    .data([data])
+    .attr("class", "line")
+    .attr("d", line);
+
+  // The minimum interval is 1000 millsec
+  var minTickInterval = 1000;
+  // call tick in every 1000 millsec
+  var interval = setInterval(tick, minTickInterval);
+
+  function tick() {
+    // send an async get request
+    httpGetAsync(url, update);
+  }
+
+  // Reset the tick interval according to users input
+  function SetTickInterval() {
+    var tickIntervalInMillSec = Math.max(minTickInterval, Number(document.getElementById("tickIntervalInMillSec").value));
+    document.getElementById("tickIntervalInMillSec").value = tickIntervalInMillSec;
+    clearInterval(interval);
+    interval = setInterval(tick, tickIntervalInMillSec);
+  }
+
+  // async get the mem usage from RecordServiced
+  function httpGetAsync (url, callback) {
+    var req= new XMLHttpRequest();
+    req.onreadystatechange = function() {
+      if (req.readyState === 4 && req.status === 200) {
+        var arr = req.responseText.split(":");
+        if (arr.length == 2) {
+          var newTime = arr[0] - startTime;
+          var newMem = arr[1] / divisor;
+          callback(newTime, newMem);
+        }
+      }
+    }
+    // true for asynchronous
+    req.open("GET", url, true);
+    req.send();
+  }
+
+  // update the mem graph with the new data
+  function update(newTime, newMem) {
+    // push a new data point onto the back
+    data.push(next(newTime, newMem));
+    // update domain
+    x.domain([timeSec - xWindow, timeSec]);
+
+    // redraw path, shift path left
+    path
+      .attr("d", line)
+      .attr("transform", null)
+      .transition()
+      .duration(2000)
+      .ease("linear")
+      .attr("transform", "translate(" + timeSec - 1 + ")")
+
+    // shift axis left
+    axis
+      .transition()
+      .duration(2000)
+      .ease("linear")
+      .call(d3.svg.axis().scale(x).orient("bottom"));
+
+    data.shift();
+  }
+
+  function next(newTime, newMem) {
+    return {
+      time: timeSec = newTime,
+      value: mem = newMem
+    };
+  }
+</script>
 {{> www/common-footer.tmpl }}
