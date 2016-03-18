@@ -65,6 +65,10 @@ class Scanner {
 
   virtual ~Scanner();
 
+  /// Reduce the maximum fetch size if fetch_size is smaller than the current maximum
+  /// fetch size.
+  void ReduceMaxFetchSize(int fetch_size);
+
  protected:
   /// Fixed size of each top-level tuple, in bytes.
   int tuple_byte_size_;
@@ -108,7 +112,8 @@ class Scanner {
   /// thread.
   static const int MIN_FETCH_SIZE;
 
-  /// The maximum fetch size set by client.
+  /// The maximum fetch size in one row batch. It initially uses the value set by client,
+  /// and can be changed via calling ReduceMaxFetchSize function.
   int max_fetch_size_;
 
   /// Fetch size in last time, and will be a reference for the adjusted fetch size.

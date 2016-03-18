@@ -59,6 +59,8 @@
 DEFINE_int32(max_row_batches, 0, "the maximum size of materialized_row_batches_");
 DECLARE_string(cgroup_hierarchy_path);
 DECLARE_bool(enable_rm);
+// The maximum fetch size when scanning compressed text files.
+DECLARE_int32(rs_compressed_max_fetch_size);
 
 namespace filesystem = boost::filesystem;
 using namespace impala;
@@ -298,6 +300,11 @@ HdfsScanner* HdfsScanNode::CreateAndPrepareScanner(HdfsPartitionDescriptor* part
         scanner = HdfsLzoTextScanner::GetHdfsLzoTextScanner(this, runtime_state_);
       } else {
         scanner = new HdfsTextScanner(this, runtime_state_);
+      }
+      // Use a smaller fetch size for compressed text file.
+      if (FLAGS_rs_compressed_max_fetch_size > 0
+          && compression != THdfsCompression::NONE) {
+        scanner->ReduceMaxFetchSize(FLAGS_rs_compressed_max_fetch_size);
       }
       break;
     case THdfsFileFormat::SEQUENCE_FILE:

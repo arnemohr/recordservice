@@ -183,8 +183,10 @@ DEFINE_bool(rs_adjust_fetch_size, true,
     "If true and use RecordService, scanner will dynamically adjust the fetch size "
     "according to the spare capacity.");
 
-DEFINE_int32(rs_scanner_min_fetch_size, 500, "The minimum fetch size for the scanner "
-    "thread.");
+DEFINE_int32(rs_min_fetch_size, 500, "The minimum fetch size for the scanner thread.");
+
+DEFINE_int32(rs_compressed_max_fetch_size, 1000, "The maximum fetch size when scanning "
+    "compressed text files. Only applied when it is positive.");
 
 DEFINE_double(rs_fetch_size_increase_factor, 0.001,
     "Correction factor to adjust the increased fetch size, must > 0 and <= 1.");
