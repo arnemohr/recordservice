@@ -18,13 +18,13 @@
 #include "util/recordservice-metrics.h"
 
 DECLARE_bool(rs_adjust_fetch_size);
-DECLARE_int32(rs_scanner_min_fetch_size);
+DECLARE_int32(rs_min_fetch_size);
 DECLARE_double(rs_fetch_size_increase_factor);
 DECLARE_double(rs_fetch_size_decrease_factor);
 DECLARE_double(rs_spare_capacity_correction_factor);
 
 // MIN_FETCH_SIZE should be one at least.
-const int Scanner::MIN_FETCH_SIZE = max(1, FLAGS_rs_scanner_min_fetch_size);
+const int Scanner::MIN_FETCH_SIZE = max(1, FLAGS_rs_min_fetch_size);
 
 Scanner::Scanner(int tuple_size, bool is_record_service, int fetch_size,
     ScannerLock* scanner_lock)
@@ -138,3 +138,8 @@ void Scanner::ReleaseScannerLock() {
     scanner_lock_->releaseLock();
   }
 }
+
+void Scanner::ReduceMaxFetchSize(int fetch_size) {
+  max_fetch_size_ = min(max_fetch_size_, fetch_size);
+}
+
