@@ -6,7 +6,7 @@
   <groupId>com.cloudera.csd</groupId>
   <artifactId>RECORD_SERVICE</artifactId>
   <packaging>pom</packaging>
-  <version>1.0</version>
+  <version>3.0</version>
   <name>The RecordService CSD</name>
 
   <repositories>
@@ -69,7 +69,7 @@
                 <artifactItem>
                   <groupId>com.cloudera.enterprise</groupId>
                   <artifactId>schema-validator</artifactId>
-                  <version>5.4.7</version>
+                  <version>5.5.3</version>
                   <overWrite>false</overWrite>
                   <outputDirectory>${project.build.directory}</outputDirectory>
                 </artifactItem>
