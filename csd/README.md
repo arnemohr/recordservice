@@ -23,11 +23,11 @@ Validation succeeded.
 
 ## Add a service via csd
 - ssh to cloudera manager server machine
-- copy $RECORD_SERVICE_HOME/csd/RECORD_SERVICE/target/RECORD_SERVICE-1.0.jar to /opt/cloudera/csd
+- copy $RECORD_SERVICE_HOME/csd/RECORD_SERVICE/target/RECORD_SERVICE-${VERSION_NUMBER}.jar to /opt/cloudera/csd
 - sudo service cloudera-scm-server restart
 - check added csd in cm-server:7180/cmf/csd/refresh
 - add a service in cm-server:7180/cmf/home
 
 ## Tutorials
-- http://github.mtv.cloudera.com/Starship/cm_ext/wiki
-- http://github.mtv.cloudera.com/Starship/csd
+- http://github.com/cloudera/cm_ext/wiki
+- http://github.com/cloudera/cm_csds
