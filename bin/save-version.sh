@@ -15,7 +15,7 @@
 
 # Generates the Record Service version string. Format is:
 # <record service version>-<cdh version>
-VERSION=0.2.0-cdh5
+VERSION=0.4.0-cdh5
 GIT_HASH=$(git rev-parse HEAD)
 BUILD_TIME=`date`
 HEADER="# Generated version information from save-version.sh"
