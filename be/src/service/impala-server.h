@@ -990,6 +990,10 @@ class ImpalaServer : public ImpalaServiceIf, public ImpalaHiveServer2ServiceIf,
     /// something unexpected and, for example, poll in one thread and fetch in another.
     uint32_t ref_count;
 
+    // The task tag of this session, it can be the container id, spark application id or
+    // job name. It is only set when using RecordService.
+    std::string taskTag;
+
     /// Builds a Thrift representation of this SessionState for serialisation to
     /// the frontend.
     void ToThrift(const TUniqueId& session_id, TSessionState* session_state);

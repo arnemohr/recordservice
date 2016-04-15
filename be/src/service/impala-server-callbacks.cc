@@ -373,6 +373,8 @@ void ImpalaServer::SessionsUrlCallback(const Webserver::ArgumentMap& args,
     session_json.AddMember("expired", state->expired, document->GetAllocator());
     session_json.AddMember("closed", state->closed, document->GetAllocator());
     session_json.AddMember("ref_count", state->ref_count, document->GetAllocator());
+
+    session_json.AddMember("task_tag", state->taskTag.c_str(), document->GetAllocator());
     sessions.PushBack(session_json, document->GetAllocator());
   }
 

@@ -1342,8 +1342,17 @@ void ImpalaServer::ExecTask(recordservice::TExecTaskResult& return_val,
 
     TQueryExecRequest& query_request = exec_req.query_exec_request;
 
+    if (req.__isset.tag) {
+      shared_ptr<SessionState> session;
+      const TUniqueId& session_id = ThriftServer::GetThreadConnectionId();
+      GetSessionState(session_id, &session);
+      if (session != NULL) {
+        session->taskTag = req.tag;
+      }
+    }
     VLOG_REQUEST << "RecordService::ExecRequest: "
-                 << query_request.query_ctx.request.stmt;
+                 << query_request.query_ctx.request.stmt << ". Tag is "
+                 << req.tag;
     VLOG_QUERY << "RecordService::ExecRequest: query plan " << query_request.query_plan;
 
     // Verify the task as something we can run. We want to verify to support upgrade
