@@ -1838,12 +1838,11 @@ void ImpalaServer::ConnectionStart(
   bool is_record_service_worker =
       connection_context.server_name == RECORD_SERVICE_WORKER_SERVER_NAME;
 
-  // To prevent clients from hanging when there are too many client connections, we use
-  // additional threads that just fail connections over the limit. For the first
-  // 'num_extra_connections' connections, we fail the connection in GetProtocolVersion()
-  // with SERVER_BUSY and any additional are failed with a general connection error.
-  const int num_extra_connections = 6;
-
+  // Don't need to CheckConnectionLimit here, as there is no chance that we can have more
+  // than (num_worker_threads + 1) threads, which is the number of threads contained by
+  // the thrift server's threads pool:
+  // Also as the error msg cannot be sent back to the client side during connection, we
+  // will CheckConnectionLimit during GetProtocolVersion.
   if (is_beeswax || is_record_service_planner || is_record_service_worker) {
     // Beeswax/RecordService only allows for one session per connection, so we
     // can share the session ID with the connection ID
@@ -1858,15 +1857,9 @@ void ImpalaServer::ConnectionStart(
       session_state->session_type = TSessionType::BEESWAX;
     } else if (is_record_service_planner) {
       DCHECK_NOTNULL(recordservice_planner_server_);
-      CheckConnectionLimit(RecordServiceMetrics::NUM_OPEN_WORKER_SESSIONS->value(),
-          recordservice_planner_server_->num_worker_threads() + num_extra_connections,
-          RECORD_SERVICE_PLANNER_SERVER_NAME);
       session_state->session_type = TSessionType::RECORDSERVICE_PLANNER;
     } else if (is_record_service_worker) {
       DCHECK_NOTNULL(recordservice_worker_server_);
-      CheckConnectionLimit(RecordServiceMetrics::NUM_OPEN_WORKER_SESSIONS->value(),
-          recordservice_worker_server_->num_worker_threads() + num_extra_connections,
-          RECORD_SERVICE_WORKER_SERVER_NAME);
       session_state->session_type = TSessionType::RECORDSERVICE_WORKER;
     }
     session_state->network_address = connection_context.network_address;
