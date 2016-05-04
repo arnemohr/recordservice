@@ -651,6 +651,18 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
     session->connected_user = username;
   }
 
+  if (req.__isset.delegated_user) {
+    Status status = AuthorizeProxyUser(session->connected_user, req.delegated_user);
+    if (!status.ok()) {
+      stringstream ss;
+      ss <<  session->connected_user << " cannot run as " << req.delegated_user;
+      LOG(ERROR) << ss.str();
+      ThrowRecordServiceException(recordservice::TErrorCode::INVALID_REQUEST, ss.str());
+    }
+    // fe will use delegated_user instead of connected_user to check the required
+    // privileges.
+    session->do_as_user = req.delegated_user;
+  }
   unique_lock<mutex> tmp_tbl_lock;
 
   // Populate session_id to query_ctx, for logging audit events.
@@ -705,7 +717,13 @@ TExecRequest ImpalaServer::PlanRecordServiceRequest(
   // Need to do this again because session->connected_user may be updated
   // inside CreateTmpTable()
   session->ToThrift(session_id, &query_ctx.session);
-  record->effective_user = session->connected_user;
+
+  if (req.__isset.delegated_user) {
+    // Display the do_as_user instead of connected_user in the /queries debug page.
+    record->effective_user = session->do_as_user;
+  } else {
+    record->effective_user = session->connected_user;
+  }
 
   // Plan the request.
   TExecRequest result;
@@ -1692,6 +1710,9 @@ Status ImpalaServer::CreateTmpTable(QueryExecState& exec_state,
   } else {
     auth_path_request.username = username;
   }
+  if (req.__isset.delegated_user) {
+    auth_path_request.username = req.delegated_user;
+  }
   auth_path_request.path = path;
   RETURN_IF_ERROR(
       exec_env_->frontend()->AuthorizePath(auth_path_request, &auth_path_response));
@@ -1798,6 +1819,9 @@ Status ImpalaServer::CreateTmpTable(QueryExecState& exec_state,
   // this user.
   // FIXME: this is a hack! think a better way to solve this issue.
   session_state->connected_user = getenv("USER");
+  if (req.__isset.delegated_user) {
+    session_state->do_as_user = getenv("USER");
+  }
 
   int num_commands = sizeof(commands) / sizeof(commands[0]);
   for (int i = 0; i < num_commands; ++i) {
