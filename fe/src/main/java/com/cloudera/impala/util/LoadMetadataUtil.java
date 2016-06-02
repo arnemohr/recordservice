@@ -395,7 +395,7 @@ public class LoadMetadataUtil {
     LOG.debug("load block md for " + tblName + " file " + fd.getFileName());
 
     if (!FileSystemUtil.hasGetFileBlockLocations(fs)) {
-      synthesizeBlockMetadata(fs, fd, fileFormat, hostIndex);
+      synthesizeBlockMetadata(file, fd, fileFormat, hostIndex);
       return;
     }
     try {
@@ -438,14 +438,11 @@ public class LoadMetadataUtil {
    *
    * Must be threadsafe. Access to 'hostIndex' must be protected.
    */
-  private static void synthesizeBlockMetadata(FileSystem fs, FileDescriptor fd,
+  private static void synthesizeBlockMetadata(FileStatus file, FileDescriptor fd,
       HdfsFileFormat fileFormat, ListMap<TNetworkAddress> hostIndex) {
     long start = 0;
     long remaining = fd.getFileLength();
-    // Workaround HADOOP-11584 by using the filesystem default block size rather than
-    // the block size from the FileStatus.
-    // TODO: after HADOOP-11584 is resolved, get the block size from the FileStatus.
-    long blockSize = fs.getDefaultBlockSize();
+    long blockSize = file.getBlockSize();
     if (blockSize < MIN_SYNTHETIC_BLOCK_SIZE) blockSize = MIN_SYNTHETIC_BLOCK_SIZE;
     if (!fileFormat.isSplittable(HdfsCompression.fromFileName(fd.getFileName()))) {
       blockSize = remaining;
