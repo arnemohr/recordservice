@@ -1694,10 +1694,17 @@ Status ImpalaServer::CreateTmpTable(QueryExecState& exec_state,
   // Each planner maintains a separate tmp table which is identified by the
   // IP address followed by process ID, to avoid collision.
   stringstream ss;
-  ss << FLAGS_rs_tmp_db << "." << string(TEMP_TBL) << "_"
-     << replace_all_copy(resolved_localhost_ip_, ".", "_")
+  ss << FLAGS_rs_tmp_db << "." << string(TEMP_TBL) << "_" << resolved_localhost_ip_
      << "_" << getpid();
-  *table_name = ss.str();
+
+  // Replace invalid characters in the table name, as only alphanumeric and underscore
+  // characters are allowed in hive / impala table names.
+  std::string resolved_table_name = ss.str();
+  replace_if(resolved_table_name.begin() + FLAGS_rs_tmp_db.size() + 1,
+      resolved_table_name.end(), std::not1(std::ptr_fun(isalnum)), '_');
+  ss.str(resolved_table_name);
+
+  *table_name = resolved_table_name;
   string create_tbl_stmt("CREATE EXTERNAL TABLE " + *table_name);
 
   // Check if the user has privilege to the path
