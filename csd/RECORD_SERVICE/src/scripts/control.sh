@@ -86,8 +86,6 @@ fi
 export USER=recordservice
 export SENTRY_CONF_DIR=${CONF_DIR}/sentry-conf
 
-env
-
 log "HADOOP_CONF_DIR: ${HADOOP_CONF_DIR}"
 log "HIVE_CONF_DIR: ${HIVE_CONF_DIR}"
 log "USER: ${USER}"
