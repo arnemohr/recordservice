@@ -133,6 +133,9 @@ class ExecEnv {
   /// Returns the scanner lock shared by all scanner threads.
   ScannerLock* get_shared_scanner_lock() { return &shared_scanner_lock_; }
 
+  /// Returns the configured defaultFs set in core-site.xml
+  string default_fs() { return default_fs_; }
+
  protected:
   /// True if this daemon is running the planner/worker service. If either is true
   /// this must be the recordserviced.
@@ -192,6 +195,9 @@ class ExecEnv {
 
   /// Initializes statestore_subscriber_.
   void InitStatestoreSubscriber();
+
+  /// fs.defaultFs value set in core-site.xml
+  std::string default_fs_;
 
   /// Initialise cgroups manager, detect test RM environment and init resource broker.
   void InitRm();

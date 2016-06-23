@@ -24,6 +24,8 @@ from impala_shell_results import get_shell_cmd_result
 from subprocess import Popen, PIPE, call
 from tests.common.impala_cluster import ImpalaCluster
 from time import sleep
+from test_shell_common import assert_var_substitution
+from tests.common.skip import SkipIfS3
 
 SHELL_CMD = "%s/bin/impala-shell.sh" % os.environ['IMPALA_HOME']
 DEFAULT_QUERY = 'select 1'
@@ -31,6 +33,7 @@ TEST_DB = "tmp_shell"
 TEST_TBL = "tbl1"
 QUERY_FILE_PATH = os.path.join(os.environ['IMPALA_HOME'], 'tests', 'shell')
 
+@SkipIfS3.insert
 class TestImpalaShell(object):
   """A set of sanity tests for the Impala shell commandline parameters.
 

@@ -53,6 +53,8 @@ class TestPartitioning(ImpalaTestSuite):
     map(cls.cleanup_db, cls.TEST_DBS)
     super(TestPartitioning, cls).teardown_class()
 
+  @SkipIfS3.insert
+  @SkipIfLocal.root_path
   @pytest.mark.execute_serially
   def test_partition_col_types(self, vector):
     self.execute_query("create database hdfs_partitioning");
@@ -64,6 +66,7 @@ class TestPartitioning(ImpalaTestSuite):
   @SkipIfS3.hive
   @SkipIfIsilon.hive
   @pytest.mark.execute_serially
+  @SkipIfS3.insert
   def test_boolean_partitions(self, vector):
     # This test takes about a minute to complete due to the Hive commands that are
     # executed. To cut down on runtime, limit the test to exhaustive exploration

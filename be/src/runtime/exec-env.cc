@@ -136,6 +136,8 @@ const static string PSEUDO_DISTRIBUTED_CONFIG_KEY =
 static const string BACKENDS_TEMPLATE = "backends.tmpl";
 static const string MEMBERSHIP_TEMPLATE = "membership.tmpl";
 
+const static string DEFAULT_FS = "fs.defaultFS";
+
 namespace impala {
 
 ExecEnv* ExecEnv::exec_env_ = NULL;
@@ -363,7 +365,6 @@ Status ExecEnv::StartServices() {
   // --mem_limit="" means no memory limit
   int64_t bytes_limit = 0;
   bool is_percent;
-
   if (MemInfo::vm_overcommit() == 2 &&
       MemInfo::commit_limit() < MemInfo::physical_mem()) {
     bytes_limit = ParseUtil::ParseMemSpec(FLAGS_mem_limit, &is_percent,
@@ -457,6 +458,19 @@ Status ExecEnv::StartServices() {
 
   if (scheduler_ != NULL) RETURN_IF_ERROR(scheduler_->Init());
 
+  // Get the fs.defaultFS value set in core-site.xml and assign it to
+  // configured_defaultFs
+  TGetHadoopConfigRequest config_request;
+  config_request.__set_name(DEFAULT_FS);
+  TGetHadoopConfigResponse config_response;
+  frontend_->GetHadoopConfig(config_request, &config_response);
+  if (config_response.__isset.value) {
+    default_fs_ = config_response.value;
+    LOG(INFO) << "DEFAULT_FS" << default_fs_;
+  } else {
+    default_fs_ = "hdfs://";
+    LOG(INFO) << "DEFAULT_FS" << default_fs_;
+  }
   // Must happen after all topic registrations / callbacks are done
   if (statestore_subscriber_.get() != NULL) {
     Status status = statestore_subscriber_->Start();
