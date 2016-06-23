@@ -27,6 +27,7 @@ import com.cloudera.impala.common.ImpalaException;
 import com.cloudera.impala.thrift.TTableName;
 import com.cloudera.impala.thrift.TUniqueId;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 
 /**
  * Catalog for recordservice. RecordserviceCatalog only uses metadata cache in getDb()
@@ -155,10 +156,20 @@ public class RecordServiceCatalog extends CatalogServiceCatalog{
           .getDatabases(dbName.toLowerCase());
       for (String db : listOfDb) {
         if (db.equals(dbName)) {
-          return new Db(dbName, this, null);
+          Db newDb = new Db(dbName, this, null);
+          loadFunctionsFromDbParams(newDb, msClient.getHiveClient().getDatabase(dbName));
+          List<org.apache.hadoop.hive.metastore.api.Function> javaFns =
+              Lists.newArrayList();
+          for (String javaFn: msClient.getHiveClient().getFunctions(dbName, "*")) {
+            javaFns.add(msClient.getHiveClient().getFunction(dbName, javaFn));
+          }
+          loadJavaFunctions(newDb, javaFns);
+          return newDb;
         }
       }
     } catch (MetaException e) {
+      LOG.info("Got MetaException during getDatabases from HMS:" + e);
+    } catch (TException e) {
       LOG.info("Got TException during getDatabases from HMS:" + e);
     } finally {
       msClient.release();

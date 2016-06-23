@@ -461,7 +461,7 @@ public class CatalogServiceCatalog extends Catalog {
    * Extracts Impala functions stored in metastore db parameters and adds them to
    * the catalog cache.
    */
-  private void loadFunctionsFromDbParams(Db db,
+  protected void loadFunctionsFromDbParams(Db db,
       org.apache.hadoop.hive.metastore.api.Database msDb) {
     if (msDb == null || msDb.getParameters() == null) return;
     LOG.info("Loading native functions for database: " + db.getName());
@@ -487,7 +487,7 @@ public class CatalogServiceCatalog extends Catalog {
    * we extract all Impala compatible evaluate() signatures and load them
    * as separate functions in the catalog.
    */
-  private void loadJavaFunctions(Db db,
+  protected void loadJavaFunctions(Db db,
       List<org.apache.hadoop.hive.metastore.api.Function> functions) {
     Preconditions.checkNotNull(functions);
     LOG.info("Loading Java functions for database: " + db.getName());
