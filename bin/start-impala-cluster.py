@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env impala-python
 # Copyright 2012 Cloudera Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,15 +17,7 @@
 # ImpalaD instances. Each ImpalaD runs on a different port allowing this to be run
 # on a single machine.
 import os
-# psutil does not exist on hosts which build Impala packages. Furthermore, it is not
-# needed as the packaging code does not start any processes.
-# TODO: Remove this logic and all usage of psutil_exists once we switch to using a python
-# virtualenv.
-try:
-  import psutil
-  psutil_exists = True
-except ImportError:
-  psutil_exists = False
+import psutil
 import sys
 from time import sleep, time
 from optparse import OptionParser
@@ -116,9 +108,6 @@ def check_process_exists(binary, attempts=1):
   otherwise.
   TODO: The conditional import will go away once we start using virtualenv.
   """
-  if not psutil_exists:
-    print "psutil not available, process invocations and kills may be unstable."
-    return True
   for _ in range(attempts):
     for pid in psutil.get_pid_list():
       try:
@@ -158,7 +147,7 @@ def kill_matching_processes(binary_name, force=False):
   if force: kill_cmd += " -9"
   os.system("%s %s" % (kill_cmd, binary_name))
 
-  if psutil_exists and check_process_exists(binary_name):
+  if check_process_exists(binary_name):
     raise RuntimeError("Unable to kill %s. Check process permissions." % (binary_name, ))
 
 def start_statestore():
@@ -191,6 +180,9 @@ def start_mini_impala_cluster(cluster_size):
   args = "-num_backends=%s %s" %\
          (cluster_size, build_impalad_logging_args(0, 'mini-impala-cluster'))
   stderr_log_file_path = os.path.join(options.log_dir, 'mini-impala-cluster-error.log')
+  print MINI_IMPALA_CLUSTER_PATH
+  print args
+  print stderr_log_file_path
   exec_impala_process(MINI_IMPALA_CLUSTER_PATH, args, stderr_log_file_path)
 
 def build_impalad_port_args(instance_num):
@@ -259,6 +251,10 @@ def start_impalad_instances(cluster_size):
     if not options.no_sentry:
       args = args + " -server_name=" + options.sentry_server_name
     stderr_log_file_path = os.path.join(options.log_dir, '%s-error.log' % service_name)
+    print "PRINT OUT THE STUFF, HOMBRE"
+    print MINI_IMPALA_CLUSTER_PATH
+    print args
+    print stderr_log_file_path
     exec_impala_process(IMPALAD_PATH, args, stderr_log_file_path)
 
   if (options.start_recordservice):
@@ -389,6 +385,7 @@ if __name__ == "__main__":
     start_mini_impala_cluster(options.cluster_size)
     wait_for_cluster_cmdline()
   else:
+    print "not inprocess"
     try:
       if not options.restart_impalad_only:
         start_statestore()
