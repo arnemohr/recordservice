@@ -1,3 +1,0 @@
-select * from zipcode_incomes$TABLE where zip='59101'
----- RESULTS
-====

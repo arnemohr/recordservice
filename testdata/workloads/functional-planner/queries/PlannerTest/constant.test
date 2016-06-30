@@ -1,8 +1,0 @@
-select 1 + 1
----- PLAN
-00:UNION
-   constant-operands=1
----- DISTRIBUTEDPLAN
-00:UNION
-   constant-operands=1
-====

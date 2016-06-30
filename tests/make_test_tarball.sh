@@ -100,7 +100,7 @@ cp ${IMPALA_HOME}/bin/set-pythonpath.sh ${TARBALL_ROOT}/bin/
 cp -a ${IMPALA_HOME}/testdata/workloads/ ${TARBALL_ROOT}/testdata/
 cp -a ${IMPALA_HOME}/testdata/datasets/ ${TARBALL_ROOT}/testdata/
 cp -a ${IMPALA_HOME}/testdata/bin/ ${TARBALL_ROOT}/testdata/
-cp -a ${IMPALA_HOME}/testdata/avro_schema_resolution/ ${TARBALL_ROOT}/testdata/
+#cp -a ${IMPALA_HOME}/testdata/avro_schema_resolution/ ${TARBALL_ROOT}/testdata/
 cp -a ${IMPALA_HOME}/tests/ ${TARBALL_ROOT}/
 cp -a ${IMPALA_HOME}/shell/ ${TARBALL_ROOT}/
 
