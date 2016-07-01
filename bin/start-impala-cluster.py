@@ -180,9 +180,6 @@ def start_mini_impala_cluster(cluster_size):
   args = "-num_backends=%s %s" %\
          (cluster_size, build_impalad_logging_args(0, 'mini-impala-cluster'))
   stderr_log_file_path = os.path.join(options.log_dir, 'mini-impala-cluster-error.log')
-  print MINI_IMPALA_CLUSTER_PATH
-  print args
-  print stderr_log_file_path
   exec_impala_process(MINI_IMPALA_CLUSTER_PATH, args, stderr_log_file_path)
 
 def build_impalad_port_args(instance_num):
@@ -251,10 +248,6 @@ def start_impalad_instances(cluster_size):
     if not options.no_sentry:
       args = args + " -server_name=" + options.sentry_server_name
     stderr_log_file_path = os.path.join(options.log_dir, '%s-error.log' % service_name)
-    print "PRINT OUT THE STUFF, HOMBRE"
-    print MINI_IMPALA_CLUSTER_PATH
-    print args
-    print stderr_log_file_path
     exec_impala_process(IMPALAD_PATH, args, stderr_log_file_path)
 
   if (options.start_recordservice):
