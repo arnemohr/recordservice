@@ -268,6 +268,22 @@ public class FileSystemUtil {
     return isDistributedFileSystem(path.getFileSystem(CONF));
   }
 
+  /**
+   * Return true iff default filesystem is a DFS filesystem.
+   *
+   * TODO: We need to make this work in situations with mixed filesystems, RS-190
+   */
+  public static boolean isDistributedFileSystem() throws IOException {
+    Path path = new Path(FileSystem.getDefaultUri(CONF));
+    return isDistributedFileSystem(path.getFileSystem(CONF));
+  }
+
+  /**
+   * Return the DistributedFileSystem or throws an exception
+   * @throws IOException
+   *
+   * TODO: We need to make this work in situations with mixed filesystems, RS-190
+   */
   public static DistributedFileSystem getDistributedFileSystem() throws IOException {
     Path path = new Path(FileSystem.getDefaultUri(CONF));
     FileSystem fs = path.getFileSystem(CONF);

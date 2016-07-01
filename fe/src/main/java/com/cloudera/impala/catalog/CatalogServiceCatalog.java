@@ -14,6 +14,7 @@
 
 package com.cloudera.impala.catalog;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -31,6 +32,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
@@ -148,7 +150,15 @@ public class CatalogServiceCatalog extends Catalog {
     catalogServiceId_ = catalogServiceId;
     tableLoadingMgr_ = new TableLoadingMgr(this, numLoadingThreads);
     loadInBackground_ = loadInBackground;
-    cachePoolReader_.scheduleAtFixedRate(new CachePoolReader(), 0, 1, TimeUnit.MINUTES);
+    try {
+      if (FileSystemUtil.isDistributedFileSystem()){
+        cachePoolReader_.scheduleAtFixedRate(
+            new CachePoolReader(), 0, 1, TimeUnit.MINUTES);
+      }
+    } catch (IOException e) {
+      LOG.error("Error determining FileSystem, skipping loading of HDFS caching metadata"
+          + " (this may impact performance for HDFS resident data)", e);
+    }
     if (sentryConfig != null) {
       sentryProxy_ = new SentryProxy(sentryConfig, this);
     } else {
