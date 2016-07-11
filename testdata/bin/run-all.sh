@@ -62,6 +62,10 @@ else
   #   - KMS is used for encryption testing, which is not available on Isilon.
   #   - Hive needs YARN, and we don't run Hive queries.
   # TODO: Figure out how to start YARN, LLAMA and Hive with a different defaultFs.
+  echo "--> Starting zookeeper"
+  $IMPALA_HOME/testdata/bin/run-zookeeper.sh 2>&1 | \
+      tee ${IMPALA_TEST_CLUSTER_LOG_DIR}/run-zookeeper.log
+
   echo " --> Starting Hive Metastore Service"
   $IMPALA_HOME/testdata/bin/run-hive-server.sh -only_metastore 2>&1 | \
       tee ${IMPALA_TEST_CLUSTER_LOG_DIR}/run-hive-server.log

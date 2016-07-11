@@ -6,6 +6,7 @@ $IMPALA_HOME/testdata/bin/kill-sentry-service.sh
 $IMPALA_HOME/testdata/bin/kill-hive-server.sh
 $IMPALA_HOME/testdata/bin/kill-hbase.sh
 $IMPALA_HOME/testdata/bin/kill-mini-dfs.sh
+$IMPALA_HOME/testdata/bin/kill-zookeeper.sh
 
 
 # kill all impalad and statestored processes

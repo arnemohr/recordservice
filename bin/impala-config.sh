@@ -152,6 +152,7 @@ export IMPALA_SENTRY_VERSION=1.5.1-cdh5.8.0-SNAPSHOT
 export IMPALA_LLAMA_VERSION=1.0.0-cdh5.8.0-SNAPSHOT
 export IMPALA_PARQUET_VERSION=1.5.0-cdh5.8.0-SNAPSHOT
 export IMPALA_MINIKDC_VERSION=1.0.0
+export IMPALA_ZK_VERSION=cdh5-3.4.5_5.8.0
 
 export IMPALA_FE_DIR=$IMPALA_HOME/fe
 export IMPALA_BE_DIR=$IMPALA_HOME/be
@@ -178,6 +179,8 @@ export SENTRY_CONF_DIR=$IMPALA_HOME/fe/src/test/resources
 export HIVE_HOME=$IMPALA_HOME/thirdparty/hive-${IMPALA_HIVE_VERSION}/
 export PATH=$HIVE_HOME/bin:$PATH
 export HIVE_CONF_DIR=$IMPALA_FE_DIR/src/test/resources
+
+export ZK_HOME=$IMPALA_HOME/thirdparty/zookeeper-${IMPALA_ZK_VERSION}
 
 # Hive looks for jar files in a single directory from HIVE_AUX_JARS_PATH plus
 # any jars in AUX_CLASSPATH. (Or a list of jars in HIVE_AUX_JARS_PATH.) Find the
