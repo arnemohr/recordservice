@@ -57,7 +57,8 @@ add_dependencies(Exprs thrift-deps gen_ir_descriptions)
 add_executable(expr-benchmark expr-benchmark.cc)
 target_link_libraries(expr-benchmark ${IMPALA_TEST_LINK_LIBS})
 
-ADD_BE_TEST(expr-test)
+# Commented out until RS-189 is resolved
+# ADD_BE_TEST(expr-test)
 ADD_BE_TEST(expr-codegen-test)
 
 # expr-codegen-test includes test IR functions
