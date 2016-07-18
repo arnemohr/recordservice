@@ -446,7 +446,10 @@ public class HdfsTable extends Table {
 
     // We silently ignore cache directives that no longer exist in HDFS, and remove
     // non-existing cache directives from the parameters.
-    isMarkedCached_ = HdfsCachingUtil.validateCacheParams(msTbl.getParameters());
+    // TODO: Handle the filesystem-specifics in HdfsCachingUtil.
+    if (FileSystemUtil.isDistributedFileSystem()) {
+      isMarkedCached_ = HdfsCachingUtil.validateCacheParams(msTbl.getParameters());
+    }
 
     if (msTbl.getPartitionKeysSize() == 0) {
       Preconditions.checkArgument(msPartitions == null || msPartitions.isEmpty());
