@@ -37,14 +37,14 @@ public class AnalyzeAuthStmtsTest extends AnalyzerTest {
     TQueryCtx queryCtx =
         TestUtils.createQueryContext(defaultDb, System.getProperty("user.name"));
     return new Analyzer(catalog_, queryCtx,
-        AuthorizationConfig.createHadoopGroupAuthConfig("server1", null, null));
+        AuthorizationConfig.createHadoopGroupAuthConfig("server1", null, null), false);
   }
 
   private Analyzer createAuthDisabledAnalyzer(String defaultDb) {
     TQueryCtx queryCtx =
         TestUtils.createQueryContext(defaultDb, System.getProperty("user.name"));
     return new Analyzer(catalog_, queryCtx,
-        AuthorizationConfig.createAuthDisabledConfig());
+        AuthorizationConfig.createAuthDisabledConfig(), false);
   }
 
   @Test
@@ -206,7 +206,7 @@ public class AnalyzeAuthStmtsTest extends AnalyzerTest {
 
     TQueryCtx queryCtxNoUsername = TestUtils.createQueryContext("default", "");
     Analyzer noUsernameAnalyzer = new Analyzer(catalog_, queryCtxNoUsername,
-        AuthorizationConfig.createHadoopGroupAuthConfig("server1", null, null));
+        AuthorizationConfig.createHadoopGroupAuthConfig("server1", null, null), false);
     AnalysisError("GRANT ALL ON SERVER TO myRole", noUsernameAnalyzer,
         "Cannot execute authorization statement with an empty username.");
   }

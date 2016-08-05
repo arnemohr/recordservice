@@ -139,12 +139,13 @@ public class JniFrontend {
 
   /**
    * Create a new instance of the Jni Frontend.
+   * TODO: Create a 'config' object for the parameters.
    */
   public JniFrontend(boolean loadInBackground, String serverName,
       String authorizationPolicyFile, String sentryConfigFile,
       String authPolicyProviderClass, int impalaLogLevel, int otherLogLevel,
-      boolean runningPlanner, boolean runningWorker,
-      int numMetadataLoadingThreads, String rsTmpDb) throws InternalException {
+      boolean runningPlanner, boolean runningWorker, int numMetadataLoadingThreads,
+      String rsTmpDb, boolean rsDisableUDF) throws InternalException {
     runningPlanner_ = runningPlanner;
     runningWorker_ = runningWorker;
 
@@ -189,15 +190,15 @@ public class JniFrontend {
         // recordserviced directly uses RecordServiceCatalog, meaning it does not
         // use the statestored to load metadata but goes directly to the other
         // services (HDFS, HMS, etc).
-        RecordServiceCatalog catalog = new RecordServiceCatalog(
-            numMetadataLoadingThreads, rsTmpDb, sentryConfig, JniCatalog.generateId());
-        frontend_ = new Frontend(authConfig, catalog);
+        RecordServiceCatalog catalog = new RecordServiceCatalog(numMetadataLoadingThreads,
+            rsTmpDb, sentryConfig, JniCatalog.generateId());
+        frontend_ = new Frontend(authConfig, catalog, rsDisableUDF);
       } else {
         // Just running worker, no need to start catalog.
-        frontend_ = new Frontend(authConfig, null);
+        frontend_ = new Frontend(authConfig, null, rsDisableUDF);
       }
     } else {
-      frontend_ = new Frontend(authConfig, new ImpaladCatalog());
+      frontend_ = new Frontend(authConfig, new ImpaladCatalog(), false);
     }
   }
 

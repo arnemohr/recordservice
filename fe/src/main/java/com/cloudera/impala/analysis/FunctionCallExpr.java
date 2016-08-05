@@ -412,6 +412,14 @@ public class FunctionCallExpr extends Expr {
       throw new AnalysisException(getFunctionNotFoundError(argTypes));
     }
 
+    // Throw AnalysisException if the execution of UDF is disabled.
+    if (fn_.getBinaryType() != TFunctionBinaryType.BUILTIN &&
+        analyzer.isUDFDisabled()) {
+      throw new AnalysisException("Execution of UDFs is currently disabled for security "
+          + "reasons. If the UDFs registered in the Hive Metastore are known to be safe, "
+          + "execution can be enabled by setting '-rs_disable_udf' to false.");
+    }
+
     if (isAggregateFunction()) {
       // subexprs must not contain aggregates
       if (TreeNode.contains(children_, Expr.isAggregatePredicate())) {

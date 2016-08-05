@@ -67,7 +67,7 @@ public class ToSqlTest extends AnalyzerTest {
     try {
       AnalysisContext analysisCtx = new AnalysisContext(catalog_,
           TestUtils.createQueryContext(defaultDb, System.getProperty("user.name")),
-          AuthorizationConfig.createAuthDisabledConfig());
+          AuthorizationConfig.createAuthDisabledConfig(), false);
       analysisCtx.analyze(query);
       AnalysisContext.AnalysisResult analysisResult = analysisCtx.getAnalysisResult();
       Preconditions.checkNotNull(analysisResult.getStmt());

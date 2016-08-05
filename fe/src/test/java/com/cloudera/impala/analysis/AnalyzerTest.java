@@ -87,14 +87,14 @@ public class AnalyzerTest {
     TQueryCtx queryCtx =
         TestUtils.createQueryContext(defaultDb, System.getProperty("user.name"));
     return new Analyzer(catalog_, queryCtx,
-        AuthorizationConfig.createAuthDisabledConfig());
+        AuthorizationConfig.createAuthDisabledConfig(), false);
   }
 
   protected Analyzer createAnalyzer(TQueryOptions queryOptions) {
     TQueryCtx queryCtx = TestUtils.createQueryContext();
     queryCtx.request.query_options = queryOptions;
     return new Analyzer(catalog_, queryCtx,
-        AuthorizationConfig.createAuthDisabledConfig());
+        AuthorizationConfig.createAuthDisabledConfig(), false);
   }
 
   protected Analyzer createAnalyzerUsingHiveColLabels() {
@@ -276,7 +276,7 @@ public class AnalyzerTest {
       AnalysisContext analysisCtx = new AnalysisContext(catalog_,
           TestUtils.createQueryContext(Catalog.DEFAULT_DB,
               System.getProperty("user.name")),
-              AuthorizationConfig.createAuthDisabledConfig());
+              AuthorizationConfig.createAuthDisabledConfig(), false);
       analysisCtx.analyze(stmt, analyzer);
       AnalysisContext.AnalysisResult analysisResult = analysisCtx.getAnalysisResult();
       if (expectedWarning != null) {
@@ -336,7 +336,7 @@ public class AnalyzerTest {
       AnalysisContext analysisCtx = new AnalysisContext(catalog_,
           TestUtils.createQueryContext(Catalog.DEFAULT_DB,
               System.getProperty("user.name")),
-              AuthorizationConfig.createAuthDisabledConfig());
+              AuthorizationConfig.createAuthDisabledConfig(), false);
       analysisCtx.analyze(stmt, analyzer);
       AnalysisContext.AnalysisResult analysisResult = analysisCtx.getAnalysisResult();
       Preconditions.checkNotNull(analysisResult.getStmt());

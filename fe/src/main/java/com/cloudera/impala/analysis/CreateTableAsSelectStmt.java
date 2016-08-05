@@ -73,7 +73,7 @@ public class CreateTableAsSelectStmt extends StatementBase {
     // over the full INSERT statement. To avoid duplicate registrations of table/colRefs,
     // create a new root analyzer and clone the query statement for this initial pass.
     Analyzer dummyRootAnalyzer = new Analyzer(analyzer.getCatalog(),
-        analyzer.getQueryCtx(), analyzer.getAuthzConfig());
+        analyzer.getQueryCtx(), analyzer.getAuthzConfig(), analyzer.isUDFDisabled());
     QueryStmt tmpQueryStmt = insertStmt_.getQueryStmt().clone();
     try {
       Analyzer tmpAnalyzer = new Analyzer(dummyRootAnalyzer);

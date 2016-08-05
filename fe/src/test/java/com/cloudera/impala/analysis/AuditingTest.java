@@ -333,9 +333,9 @@ public class AuditingTest extends AnalyzerTest {
     AuthorizationConfig config = AuthorizationConfig.createHadoopGroupAuthConfig(
         "server1", "/does/not/exist", "");
     ImpaladCatalog catalog = new ImpaladTestCatalog(config);
-    Frontend fe = new Frontend(config, catalog);
+    Frontend fe = new Frontend(config, catalog, false);
     AnalysisContext analysisContext =
-        new AnalysisContext(catalog, TestUtils.createQueryContext(), config);
+        new AnalysisContext(catalog, TestUtils.createQueryContext(), config, false);
     // We should get an audit event even when an authorization failure occurs.
     try {
       analysisContext.analyze("create table foo_does_not_exist(i int)");

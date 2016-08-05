@@ -120,8 +120,8 @@ public class AuthorizationTest {
     }
     catalog_ = new ImpaladTestCatalog(authzConfig_);
     queryCtx_ = TestUtils.createQueryContext(Catalog.DEFAULT_DB, USER.getName());
-    analysisContext_ = new AnalysisContext(catalog_, queryCtx_, authzConfig_);
-    fe_ = new Frontend(authzConfig_, catalog_);
+    analysisContext_ = new AnalysisContext(catalog_, queryCtx_, authzConfig_, false);
+    fe_ = new Frontend(authzConfig_, catalog_, false);
   }
 
   private void setup() throws Exception {
@@ -1590,7 +1590,7 @@ public class AuthorizationTest {
     for (User user: users) {
       AnalysisContext context = new AnalysisContext(catalog_,
           TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()),
-          authzConfig_);
+          authzConfig_, false);
 
       // Can select from table that user has privileges on.
       AuthzOk(context, "select * from functional.alltypesagg");
@@ -1612,7 +1612,7 @@ public class AuthorizationTest {
     User currentUser = USER;
     AnalysisContext context = new AnalysisContext(catalog_,
         TestUtils.createQueryContext(Catalog.DEFAULT_DB, currentUser.getName()),
-        authzConfig_);
+        authzConfig_, false);
     AuthzError(context, "show functions",
         "User '%s' does not have privileges to access: default", currentUser);
     AuthzOk(context, "show functions in tpch");
@@ -1830,8 +1830,9 @@ public class AuthorizationTest {
     // Create an analysis context + FE with the test user (as defined in the policy file)
     User user = new User("test_user");
     AnalysisContext context = new AnalysisContext(catalog,
-        TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()), authzConfig);
-    Frontend fe = new Frontend(authzConfig, catalog);
+        TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()),
+        authzConfig, false);
+    Frontend fe = new Frontend(authzConfig, catalog, false);
 
     // Can select from table that user has privileges on.
     AuthzOk(fe, context, "select * from functional.alltypesagg");
@@ -1843,8 +1844,9 @@ public class AuthorizationTest {
     // Verify with the admin user
     user = new User("admin_user");
     context = new AnalysisContext(catalog,
-        TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()), authzConfig);
-    fe = new Frontend(authzConfig, catalog);
+        TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()),
+        authzConfig, false);
+    fe = new Frontend(authzConfig, catalog, false);
 
     // Admin user should have privileges to do anything
     AuthzOk(fe, context, "select * from functional.alltypesagg");
@@ -1854,9 +1856,10 @@ public class AuthorizationTest {
 
   private void TestWithIncorrectConfig(AuthorizationConfig authzConfig, User user)
       throws AnalysisException {
-    Frontend fe = new Frontend(authzConfig, catalog_);
+    Frontend fe = new Frontend(authzConfig, catalog_, false);
     AnalysisContext ac = new AnalysisContext(new ImpaladTestCatalog(),
-        TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()), authzConfig);
+        TestUtils.createQueryContext(Catalog.DEFAULT_DB, user.getName()),
+        authzConfig, false);
     AuthzError(fe, ac, "select * from functional.alltypesagg",
         "User '%s' does not have privileges to execute 'SELECT' on: " +
         "functional.alltypesagg", user);

@@ -42,12 +42,12 @@ import com.google.common.collect.Sets;
  */
 public class FrontendTest {
   private static Frontend fe_ = new Frontend(
-      AuthorizationConfig.createAuthDisabledConfig(), new ImpaladTestCatalog());
+      AuthorizationConfig.createAuthDisabledConfig(), new ImpaladTestCatalog(), false);
 
   @Test
   public void TestCatalogNotReady() throws ImpalaException {
     Frontend fe = new Frontend(AuthorizationConfig.createAuthDisabledConfig(),
-        new ImpaladCatalog());
+        new ImpaladCatalog(), false);
     TQueryCtx queryCtx = TestUtils.createQueryContext("default", "fake_user");
 
     // Queries that do not touch catalog objects should succeed.

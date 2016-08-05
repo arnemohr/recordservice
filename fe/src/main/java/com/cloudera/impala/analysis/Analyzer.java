@@ -297,12 +297,15 @@ public class Analyzer {
     // profiling
     private final EventSequence timeline = new EventSequence("Planner Timeline");
 
+    private final boolean rsDisableUDF_;
+
     public GlobalState(Catalog catalog, TQueryCtx queryCtx,
-        AuthorizationConfig authzConfig) {
+        AuthorizationConfig authzConfig, boolean rsDisableUDF) {
       this.catalog = catalog;
       this.queryCtx = queryCtx;
       this.authzConfig = authzConfig;
       this.lineageGraph = new ColumnLineageGraph();
+      this.rsDisableUDF_ = rsDisableUDF;
     }
   };
 
@@ -349,9 +352,9 @@ public class Analyzer {
   private boolean hasEmptySpjResultSet_ = false;
 
   public Analyzer(Catalog catalog, TQueryCtx queryCtx,
-      AuthorizationConfig authzConfig) {
+      AuthorizationConfig authzConfig, boolean rsDisableUDF) {
     ancestors_ = Lists.newArrayList();
-    globalState_ = new GlobalState(catalog, queryCtx, authzConfig);
+    globalState_ = new GlobalState(catalog, queryCtx, authzConfig, rsDisableUDF);
     user_ = new User(TSessionStateUtil.getEffectiveUser(queryCtx.session));
   }
 
@@ -383,7 +386,8 @@ public class Analyzer {
    */
   public static Analyzer createWithNewGlobalState(Analyzer parentAnalyzer) {
     GlobalState globalState = new GlobalState(parentAnalyzer.globalState_.catalog,
-        parentAnalyzer.getQueryCtx(), parentAnalyzer.getAuthzConfig());
+        parentAnalyzer.getQueryCtx(), parentAnalyzer.getAuthzConfig(),
+        parentAnalyzer.isUDFDisabled());
     return new Analyzer(parentAnalyzer, globalState);
   }
 
@@ -2495,6 +2499,13 @@ public class Analyzer {
    */
   public boolean isRecordService() throws AnalysisException {
     return getQueryCtx().is_record_service_request;
+  }
+
+  /**
+   * True if the execution of UDF is disabled.
+   */
+  public boolean isUDFDisabled() {
+    return globalState_.rsDisableUDF_;
   }
 
   /**

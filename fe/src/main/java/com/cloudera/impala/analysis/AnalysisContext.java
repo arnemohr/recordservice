@@ -49,15 +49,17 @@ public class AnalysisContext {
   private final Catalog catalog_;
   private final TQueryCtx queryCtx_;
   private final AuthorizationConfig authzConfig_;
+  private final boolean rsDisableUDF_;
 
   // Set in analyze()
   private AnalysisResult analysisResult_;
 
   public AnalysisContext(Catalog catalog, TQueryCtx queryCtx,
-      AuthorizationConfig authzConfig) {
+      AuthorizationConfig authzConfig, boolean rsDisableUDF) {
     catalog_ = catalog;
     queryCtx_ = queryCtx;
     authzConfig_ = authzConfig;
+    rsDisableUDF_ = rsDisableUDF;
   }
 
   static public class AnalysisResult {
@@ -324,7 +326,7 @@ public class AnalysisContext {
    *           missing tables are detected as a result of running analysis.
    */
   public void analyze(String stmt) throws AnalysisException {
-    Analyzer analyzer = new Analyzer(catalog_, queryCtx_, authzConfig_);
+    Analyzer analyzer = new Analyzer(catalog_, queryCtx_, authzConfig_, rsDisableUDF_);
     analyze(stmt, analyzer);
   }
 
@@ -338,7 +340,8 @@ public class AnalysisContext {
       analysisResult_ = new AnalysisResult();
       analysisResult_.analyzer_ = analyzer;
       if (analysisResult_.analyzer_ == null) {
-        analysisResult_.analyzer_ = new Analyzer(catalog_, queryCtx_, authzConfig_);
+        analysisResult_.analyzer_ =
+            new Analyzer(catalog_, queryCtx_, authzConfig_, rsDisableUDF_);
       }
       analysisResult_.stmt_ = (StatementBase) parser.parse().value;
       if (analysisResult_.stmt_ == null) return;
@@ -359,7 +362,8 @@ public class AnalysisContext {
         // Re-analyze the rewritten statement.
         Preconditions.checkNotNull(rewrittenStmt);
         analysisResult_ = new AnalysisResult();
-        analysisResult_.analyzer_ = new Analyzer(catalog_, queryCtx_, authzConfig_);
+        analysisResult_.analyzer_ =
+            new Analyzer(catalog_, queryCtx_, authzConfig_, rsDisableUDF_);
         analysisResult_.stmt_ = rewrittenStmt;
         analysisResult_.stmt_.analyze(analysisResult_.analyzer_);
         LOG.trace("rewrittenStmt: " + rewrittenStmt.toSql());

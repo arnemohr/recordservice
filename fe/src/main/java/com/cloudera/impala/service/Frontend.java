@@ -169,10 +169,12 @@ public class Frontend {
   private final AtomicReference<AuthorizationChecker> authzChecker_;
   private final ScheduledExecutorService policyReader_ =
       Executors.newScheduledThreadPool(1);
+  private final boolean rsDisableUDF_;
 
   public static Frontend Instance() { return INSTANCE; }
 
-  public Frontend(AuthorizationConfig authorizationConfig, Catalog catalog) {
+  public Frontend(AuthorizationConfig authorizationConfig, Catalog catalog,
+      boolean rsDisableUDF) {
     authzConfig_ = authorizationConfig;
     impaladCatalog_ = catalog;
     if (catalog != null) {
@@ -192,6 +194,14 @@ public class Frontend {
       authzChecker_ = null;
     }
     INSTANCE = this;
+    rsDisableUDF_ = rsDisableUDF;
+    if (rsDisableUDF_) {
+      LOG.info("The execution of UDFs is disabled for security reasons. To enable "
+          + "execution, set '-rs_disable_udf' to false.");
+    } else {
+      LOG.info("The execution of UDFs is enabled. To disable execution, "
+          + "set '-rs_disable_udf' to true.");
+    }
   }
 
   /**
@@ -832,7 +842,7 @@ public class Frontend {
   private AnalysisContext.AnalysisResult analyzeStmt(TQueryCtx queryCtx)
       throws AnalysisException, InternalException, AuthorizationException {
     AnalysisContext analysisCtx = new AnalysisContext(impaladCatalog_, queryCtx,
-        authzConfig_);
+        authzConfig_, rsDisableUDF_);
     LOG.debug("analyze query " + queryCtx.request.stmt);
     // Run analysis in a loop until it any of the following events occur:
     // 1) Analysis completes successfully.

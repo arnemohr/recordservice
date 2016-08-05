@@ -39,6 +39,8 @@ DECLARE_string(rs_tmp_db);
 DEFINE_bool(load_catalog_at_startup, false, "if true, load all catalog data at startup");
 DECLARE_bool(load_catalog_in_background);
 
+DECLARE_bool(rs_disable_udf);
+
 // Authorization related flags. Must be set to valid values to properly configure
 // authorization. For RecordService, the following properties are directly loaded
 // from sentry-site.xml.
@@ -67,7 +69,7 @@ DEFINE_string(authorized_proxy_user_config_delimiter, ",",
 Frontend::Frontend(bool running_planner, bool running_worker) {
   JniMethodDescriptor methods[] = {
     {"<init>", "(ZLjava/lang/String;Ljava/lang/String;Ljava/lang/String;"
-        "Ljava/lang/String;IIZZILjava/lang/String;)V", &fe_ctor_},
+        "Ljava/lang/String;IIZZILjava/lang/String;Z)V", &fe_ctor_},
     {"initZooKeeper", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;II)V",
       &init_zookeeper_id_},
     {"createExecRequest", "([B)[B", &create_exec_request_id_},
@@ -133,7 +135,8 @@ Frontend::Frontend(bool running_planner, bool running_worker) {
   jobject fe = jni_env->NewObject(fe_class_, fe_ctor_, load_catalog_in_background,
       server_name, policy_file_path, sentry_config, auth_provider_class,
       FlagToTLogLevel(FLAGS_v), FlagToTLogLevel(FLAGS_non_impala_java_vlog),
-      running_planner, running_worker, FLAGS_num_metadata_loading_threads, rs_tmp_db);
+      running_planner, running_worker, FLAGS_num_metadata_loading_threads, rs_tmp_db,
+      FLAGS_rs_disable_udf);
 
   EXIT_IF_EXC(jni_env);
   EXIT_IF_ERROR(JniUtil::LocalToGlobalRef(jni_env, fe, &fe_));
