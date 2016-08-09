@@ -16,6 +16,8 @@ package com.cloudera.impala.analysis;
 
 import java.util.List;
 
+import org.apache.hadoop.fs.permission.FsAction;
+
 import com.cloudera.impala.authorization.Privilege;
 import com.cloudera.impala.catalog.AggregateFunction;
 import com.cloudera.impala.catalog.Catalog;
@@ -466,6 +468,13 @@ public class FunctionCallExpr extends Expr {
     // support for this was not added to the backend in 2.0
     if (type_.isWildcardChar() || type_.isWildcardVarchar()) {
       type_ = ScalarType.STRING;
+    }
+
+    // User needs uri access.
+    // Here we will do the permission check against URI for the user and register the
+    // uri privilege request to the analyzer, which will authorize all accesses later.
+    if (fn_.getLocation() != null) {
+      fn_.getLocation().analyze(analyzer, Privilege.ALL, FsAction.READ);
     }
   }
 
