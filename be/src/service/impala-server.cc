@@ -197,8 +197,7 @@ DEFINE_double(rs_fetch_size_decrease_factor, 1.5,
 DEFINE_double(rs_spare_capacity_correction_factor, 0.8,
     "Correction factor to adjust the spare capacity, must > 0 and <= 1");
 
-// TODO: RS-198 Set the default value of rs_disable_udf to true.
-DEFINE_bool(rs_disable_udf, false,
+DEFINE_bool(rs_disable_udf, true,
     "If true, RecordService will deny execution of any request that contains a UDF "
     "(build-in functions are still allowed). If false, RecordService allows execution of "
     "all UDFs registered in the Hive Metastore.");
